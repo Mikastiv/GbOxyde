@@ -9,7 +9,6 @@ pub struct Cpu {
     regs: Registers,
     halted: bool,
     ime: bool,
-    cycles: u64,
 }
 
 pub trait Interface {
@@ -22,6 +21,7 @@ pub trait Interface {
     }
     fn write(&mut self, address: u16, data: u8);
     fn tick(&mut self, count: usize);
+    fn cycles(&self) -> u64;
 }
 
 impl Cpu {
@@ -31,7 +31,6 @@ impl Cpu {
             regs: Registers::new(),
             halted: false,
             ime: false,
-            cycles: 0,
         }
     }
 

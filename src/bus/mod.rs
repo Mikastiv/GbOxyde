@@ -14,6 +14,7 @@ const WRAM_END: u16 = 0xDFFF;
 pub struct Bus {
     cartridge: Cartridge,
     ram: Ram,
+    cycles: u64,
 }
 
 impl Bus {
@@ -21,6 +22,7 @@ impl Bus {
         Self {
             cartridge,
             ram: Ram::new(),
+            cycles: 0,
         }
     }
 }
@@ -44,6 +46,12 @@ impl cpu::Interface for Bus {
     }
 
     fn tick(&mut self, count: usize) {
-        for _ in 0..count {}
+        for _ in 0..count {
+            self.cycles += 1;
+        }
+    }
+
+    fn cycles(&self) -> u64 {
+        self.cycles
     }
 }
