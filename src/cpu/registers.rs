@@ -33,8 +33,28 @@ impl Registers {
             e: 0,
             h: 0,
             l: 0,
-            pc: 0,
+            pc: 0x0100,
             sp: 0,
         }
+    }
+
+    pub const fn z(&self) -> bool {
+        self.f.contains(Flags::Z)
+    }
+
+    pub const fn n(&self) -> bool {
+        self.f.contains(Flags::N)
+    }
+
+    pub const fn h(&self) -> bool {
+        self.f.contains(Flags::H)
+    }
+
+    pub const fn c(&self) -> bool {
+        self.f.contains(Flags::C)
+    }
+
+    pub fn set_flags(&mut self, flags: Flags, value: bool) {
+        self.f.set(flags, value);
     }
 }
