@@ -11,3 +11,17 @@ pub struct Cpu {
 }
 
 pub trait Interface {}
+
+impl Cpu {
+    pub fn new() -> Self {
+        Self {
+            cur_inst: 0x00,
+            regs: Registers::new(),
+            halted: false,
+            ime: false,
+            cycles: 0,
+        }
+    }
+
+    pub fn execute(&mut self, bus: &mut impl Interface) {}
+}

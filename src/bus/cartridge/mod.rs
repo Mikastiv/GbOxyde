@@ -9,8 +9,11 @@ pub struct Cartridge {
 
 impl Cartridge {
     pub fn new(rom: Vec<u8>) -> Self {
+        let mut header = [0; HEADER_SIZE];
+        header.copy_from_slice(&rom[HEADER_LOC..HEADER_LOC + HEADER_SIZE]);
+
         Self {
-            header: Header::new(&rom[HEADER_LOC..HEADER_LOC + HEADER_SIZE]),
+            header: Header::new(header),
             rom,
         }
     }

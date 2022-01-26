@@ -21,3 +21,20 @@ pub struct Registers {
     pub pc: u16,
     pub sp: u16,
 }
+
+impl Registers {
+    pub const fn new() -> Self {
+        Self {
+            a: 0,
+            f: Flags::empty(),
+            b: 0,
+            c: 0,
+            d: 0,
+            e: 0,
+            h: 0,
+            l: 0,
+            pc: 0,
+            sp: 0,
+        }
+    }
+}

@@ -1,6 +1,8 @@
+use crate::cpu;
+
 use self::{cartridge::Cartridge, ram::Ram};
 
-mod cartridge;
+pub mod cartridge;
 mod ram;
 
 const ROM_START: u16 = 0x0000;
@@ -22,3 +24,5 @@ impl Bus {
         }
     }
 }
+
+impl cpu::Interface for Bus {}

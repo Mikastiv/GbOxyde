@@ -13,7 +13,6 @@ const CGB_FLAG_LOC: usize = 0x43;
 const SGB_FLAG_LOC: usize = 0x46;
 
 const NEW_LIC_LOC: usize = 0x44;
-const NEW_LIC_SIZE: usize = 0x02;
 const OLD_LIC_LOC: usize = 0x4B;
 
 const CART_TYPE_LOC: usize = 0x47;
@@ -44,19 +43,17 @@ pub struct Header {
 }
 
 impl Header {
-    pub fn new(buf: &[u8]) -> Self {
-        assert_eq!(buf.len(), HEADER_SIZE);
-
+    pub fn new(buf: [u8; HEADER_SIZE]) -> Self {
         let title_end = TITLE_LOC + title_size(buf[CGB_FLAG_LOC]);
         let slice = &buf[TITLE_LOC..title_end];
         let title = String::from_utf8_lossy(slice).to_string();
 
+        let mut chksum_bytes = [0; CHECKSUM_END - CHECKSUM_START];
+        chksum_bytes.copy_from_slice(&buf[CHECKSUM_START..CHECKSUM_END]);
+
         Self {
             title,
-            licensee: licensee(
-                buf[OLD_LIC_LOC],
-                &buf[NEW_LIC_LOC..NEW_LIC_LOC + NEW_LIC_SIZE],
-            ),
+            licensee: licensee(buf[OLD_LIC_LOC], [buf[NEW_LIC_LOC], buf[NEW_LIC_LOC + 1]]),
             cart_type: cart_type(buf[CART_TYPE_LOC]),
             cgb_flag: buf[CGB_FLAG_LOC],
             sgb_flag: buf[SGB_FLAG_LOC],
@@ -65,7 +62,7 @@ impl Header {
             ram_size: ram_size(buf[RAM_SIZE_LOC]),
             dst: destination(buf[DST_LOC]),
             version: buf[VERSION_LOC],
-            checksum: checksum(buf[CHECKSUM_LOC], &buf[CHECKSUM_START..CHECKSUM_END]),
+            checksum: checksum(buf[CHECKSUM_LOC], chksum_bytes),
         }
     }
 
@@ -117,9 +114,7 @@ impl Header {
     }
 }
 
-fn licensee(old: u8, new: &[u8]) -> &'static str {
-    assert_eq!(new.len(), NEW_LIC_SIZE);
-
+fn licensee(old: u8, new: [u8; 2]) -> &'static str {
     let hi = new[0] & 0x0F;
     let lo = new[1] & 0x0F;
     let new_lic_code = hi << 4 | lo;
@@ -158,9 +153,7 @@ const fn destination(code: u8) -> &'static str {
     }
 }
 
-fn checksum(sum: u8, bytes: &[u8]) -> bool {
-    assert_eq!(bytes.len(), 0x4D - 0x34);
-
+fn checksum(sum: u8, bytes: [u8; CHECKSUM_END - CHECKSUM_START]) -> bool {
     let x = bytes
         .iter()
         .fold(0u8, |acc, &v| acc.wrapping_sub(v).wrapping_sub(1));
