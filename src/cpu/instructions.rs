@@ -19,13 +19,17 @@ pub enum Reg {
     L,
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Copy)]
-pub enum Absolute {
+pub enum Address {
     HL,
     BC,
     DE,
     HLI,
     HLD,
+    Absolute,
+    ZeroPage,
+    ZeroPageC,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -59,53 +63,49 @@ impl Src<Reg> for Cpu {
     }
 }
 
-impl Dst<Absolute> for Cpu {
-    fn write(&mut self, bus: &mut impl Interface, dst: Absolute, data: u8) {
-        let address = match dst {
-            Absolute::HL => self.regs.hl(),
-            Absolute::BC => self.regs.bc(),
-            Absolute::DE => self.regs.de(),
-            Absolute::HLI => {
+impl Cpu {
+    fn get_address(&mut self, bus: &mut impl Interface, addr: Address) -> u16 {
+        match addr {
+            Address::HL => self.regs.hl(),
+            Address::BC => self.regs.bc(),
+            Address::DE => self.regs.de(),
+            Address::HLI => {
                 let hl = self.regs.hl();
                 self.regs.inc_hl();
                 hl
             }
-            Absolute::HLD => {
+            Address::HLD => {
                 let hl = self.regs.hl();
                 self.regs.dec_hl();
                 hl
             }
-        };
+            Address::Absolute => self.imm_word(bus),
+            Address::ZeroPage => {
+                let data = self.imm(bus);
+                0xFF00 | data as u16
+            }
+            Address::ZeroPageC => 0xFF00 | self.regs.c as u16,
+        }
+    }
+}
 
+impl Dst<Address> for Cpu {
+    fn write(&mut self, bus: &mut impl Interface, dst: Address, data: u8) {
+        let address = self.get_address(bus, dst);
         bus.write(address, data);
     }
 }
 
-impl Src<Absolute> for Cpu {
-    fn read(&mut self, bus: &mut impl Interface, src: Absolute) -> u8 {
-        let address = match src {
-            Absolute::HL => self.regs.hl(),
-            Absolute::BC => self.regs.bc(),
-            Absolute::DE => self.regs.de(),
-            Absolute::HLI => {
-                let hl = self.regs.hl();
-                self.regs.inc_hl();
-                hl
-            }
-            Absolute::HLD => {
-                let hl = self.regs.hl();
-                self.regs.dec_hl();
-                hl
-            }
-        };
-
+impl Src<Address> for Cpu {
+    fn read(&mut self, bus: &mut impl Interface, src: Address) -> u8 {
+        let address = self.get_address(bus, src);
         bus.read(address)
     }
 }
 
 impl Src<Imm> for Cpu {
     fn read(&mut self, bus: &mut impl Interface, _src: Imm) -> u8 {
-        bus.read(self.regs.pc)
+        self.imm(bus)
     }
 }
 
@@ -119,21 +119,21 @@ impl Cpu {
             0x76 => self.halt(),
             0xF3 => self.di(),
             0xFB => self.ei(),
-            0x02 => self.load(bus, Absolute::BC, Reg::A),
+            0x02 => self.load(bus, Address::BC, Reg::A),
+            0x12 => self.load(bus, Address::DE, Reg::A),
+            0x22 => self.load(bus, Address::HLI, Reg::A),
+            0x32 => self.load(bus, Address::HLD, Reg::A),
+            0x0A => self.load(bus, Reg::A, Address::BC),
+            0x1A => self.load(bus, Reg::A, Address::DE),
+            0x2A => self.load(bus, Reg::A, Address::HLI),
+            0x3A => self.load(bus, Reg::A, Address::HLD),
             0x06 => self.load(bus, Reg::B, Imm),
-            0x0A => self.load(bus, Reg::A, Absolute::BC),
             0x0E => self.load(bus, Reg::C, Imm),
-            0x12 => self.load(bus, Absolute::DE, Reg::A),
             0x16 => self.load(bus, Reg::D, Imm),
-            0x1A => self.load(bus, Reg::A, Absolute::DE),
             0x1E => self.load(bus, Reg::E, Imm),
-            0x22 => self.load(bus, Absolute::HLI, Reg::A),
             0x26 => self.load(bus, Reg::H, Imm),
-            0x2A => self.load(bus, Reg::A, Absolute::HLI),
             0x2E => self.load(bus, Reg::L, Imm),
-            0x32 => self.load(bus, Absolute::HLD, Reg::A),
-            0x36 => self.load(bus, Absolute::HL, Imm),
-            0x3A => self.load(bus, Reg::A, Absolute::HLD),
+            0x36 => self.load(bus, Address::HL, Imm),
             0x3E => self.load(bus, Reg::A, Imm),
             0x40 => self.load(bus, Reg::B, Reg::B),
             0x41 => self.load(bus, Reg::B, Reg::C),
@@ -141,7 +141,7 @@ impl Cpu {
             0x43 => self.load(bus, Reg::B, Reg::E),
             0x44 => self.load(bus, Reg::B, Reg::H),
             0x45 => self.load(bus, Reg::B, Reg::L),
-            0x46 => self.load(bus, Reg::B, Absolute::HL),
+            0x46 => self.load(bus, Reg::B, Address::HL),
             0x47 => self.load(bus, Reg::B, Reg::A),
             0x48 => self.load(bus, Reg::C, Reg::B),
             0x49 => self.load(bus, Reg::C, Reg::C),
@@ -149,7 +149,7 @@ impl Cpu {
             0x4B => self.load(bus, Reg::C, Reg::E),
             0x4C => self.load(bus, Reg::C, Reg::H),
             0x4D => self.load(bus, Reg::C, Reg::L),
-            0x4E => self.load(bus, Reg::C, Absolute::HL),
+            0x4E => self.load(bus, Reg::C, Address::HL),
             0x4F => self.load(bus, Reg::C, Reg::A),
             0x50 => self.load(bus, Reg::D, Reg::B),
             0x51 => self.load(bus, Reg::D, Reg::C),
@@ -157,7 +157,7 @@ impl Cpu {
             0x53 => self.load(bus, Reg::D, Reg::E),
             0x54 => self.load(bus, Reg::D, Reg::H),
             0x55 => self.load(bus, Reg::D, Reg::L),
-            0x56 => self.load(bus, Reg::D, Absolute::HL),
+            0x56 => self.load(bus, Reg::D, Address::HL),
             0x57 => self.load(bus, Reg::D, Reg::A),
             0x58 => self.load(bus, Reg::E, Reg::B),
             0x59 => self.load(bus, Reg::E, Reg::C),
@@ -165,7 +165,7 @@ impl Cpu {
             0x5B => self.load(bus, Reg::E, Reg::E),
             0x5C => self.load(bus, Reg::E, Reg::H),
             0x5D => self.load(bus, Reg::E, Reg::L),
-            0x5E => self.load(bus, Reg::E, Absolute::HL),
+            0x5E => self.load(bus, Reg::E, Address::HL),
             0x5F => self.load(bus, Reg::E, Reg::A),
             0x60 => self.load(bus, Reg::H, Reg::B),
             0x61 => self.load(bus, Reg::H, Reg::C),
@@ -173,7 +173,7 @@ impl Cpu {
             0x63 => self.load(bus, Reg::H, Reg::E),
             0x64 => self.load(bus, Reg::H, Reg::H),
             0x65 => self.load(bus, Reg::H, Reg::L),
-            0x66 => self.load(bus, Reg::H, Absolute::HL),
+            0x66 => self.load(bus, Reg::H, Address::HL),
             0x67 => self.load(bus, Reg::H, Reg::A),
             0x68 => self.load(bus, Reg::L, Reg::B),
             0x69 => self.load(bus, Reg::L, Reg::C),
@@ -181,23 +181,29 @@ impl Cpu {
             0x6B => self.load(bus, Reg::L, Reg::E),
             0x6C => self.load(bus, Reg::L, Reg::H),
             0x6D => self.load(bus, Reg::L, Reg::L),
-            0x6E => self.load(bus, Reg::L, Absolute::HL),
+            0x6E => self.load(bus, Reg::L, Address::HL),
             0x6F => self.load(bus, Reg::L, Reg::A),
-            0x70 => self.load(bus, Absolute::HL, Reg::B),
-            0x71 => self.load(bus, Absolute::HL, Reg::C),
-            0x72 => self.load(bus, Absolute::HL, Reg::D),
-            0x73 => self.load(bus, Absolute::HL, Reg::E),
-            0x74 => self.load(bus, Absolute::HL, Reg::H),
-            0x75 => self.load(bus, Absolute::HL, Reg::L),
-            0x77 => self.load(bus, Absolute::HL, Reg::A),
+            0x70 => self.load(bus, Address::HL, Reg::B),
+            0x71 => self.load(bus, Address::HL, Reg::C),
+            0x72 => self.load(bus, Address::HL, Reg::D),
+            0x73 => self.load(bus, Address::HL, Reg::E),
+            0x74 => self.load(bus, Address::HL, Reg::H),
+            0x75 => self.load(bus, Address::HL, Reg::L),
+            0x77 => self.load(bus, Address::HL, Reg::A),
             0x78 => self.load(bus, Reg::A, Reg::B),
             0x79 => self.load(bus, Reg::A, Reg::C),
             0x7A => self.load(bus, Reg::A, Reg::D),
             0x7B => self.load(bus, Reg::A, Reg::E),
             0x7C => self.load(bus, Reg::A, Reg::H),
             0x7D => self.load(bus, Reg::A, Reg::L),
-            0x7E => self.load(bus, Reg::A, Absolute::HL),
+            0x7E => self.load(bus, Reg::A, Address::HL),
             0x7F => self.load(bus, Reg::A, Reg::A),
+            0xE0 => self.load(bus, Address::ZeroPage, Reg::A),
+            0xF0 => self.load(bus, Reg::A, Address::ZeroPage),
+            0xE2 => self.load(bus, Address::ZeroPageC, Reg::A),
+            0xF2 => self.load(bus, Reg::A, Address::ZeroPageC),
+            0xEA => self.load(bus, Address::Absolute, Reg::A),
+            0xFA => self.load(bus, Reg::A, Address::Absolute),
             _ => {}
         }
     }

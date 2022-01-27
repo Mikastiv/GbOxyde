@@ -56,6 +56,18 @@ impl Cpu {
         self.inc_pc();
     }
 
+    fn imm(&mut self, bus: &mut impl Interface) -> u8 {
+        let data = bus.read(self.regs.pc);
+        self.inc_pc();
+        data
+    }
+
+    fn imm_word(&mut self, bus: &mut impl Interface) -> u16 {
+        let lo = self.imm(bus);
+        let hi = self.imm(bus);
+        u16::from_le_bytes([lo, hi])
+    }
+
     fn inc_pc(&mut self) {
         self.regs.pc += 1;
     }
