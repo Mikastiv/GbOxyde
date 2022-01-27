@@ -58,8 +58,26 @@ impl Registers {
         self.f.set(flags, value);
     }
 
+    pub fn bc(&self) -> u16 {
+        (u16::from(self.b) << 8) | u16::from(self.c)
+    }
+
+    pub fn de(&self) -> u16 {
+        (u16::from(self.d) << 8) | u16::from(self.e)
+    }
+
     pub fn hl(&self) -> u16 {
         (u16::from(self.h) << 8) | u16::from(self.l)
+    }
+
+    pub fn inc_hl(&mut self) {
+        let hl = self.hl();
+        self.set_hl(hl.wrapping_add(1));
+    }
+
+    pub fn dec_hl(&mut self) {
+        let hl = self.hl();
+        self.set_hl(hl.wrapping_sub(1));
     }
 
     pub fn set_hl(&mut self, value: u16) {

@@ -66,6 +66,10 @@ impl Cpu {
         panic!("Stop instruction");
     }
 
+    fn halt(&mut self) {
+        self.halted = true;
+    }
+
     fn ccf(&mut self) {
         self.regs.set_flags(Flags::N | Flags::H, false);
         self.regs.set_flags(Flags::C, !self.regs.c());
