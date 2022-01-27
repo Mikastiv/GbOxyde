@@ -17,7 +17,7 @@ impl Cpu {
 
     fn print_inst<I: Interface, Inst: Display>(&self, bus: &mut I, inst: Inst) {
         println!(
-            "{}| {:02X} {:02X} {:02X} | PC:{:04X} | SP:{:04X} | A:{:02X} | F:{:02X} | B:{:02X} | C:{:02X} | D:{:02X} | E:{:02X} | H:{:02X} | L:{:02X} | CYCLES:{}",
+            "{} | {:02X} {:02X} {:02X} | PC:{:04X} | SP:{:04X} | A:{:02X} | F:{:02X} | B:{:02X} | C:{:02X} | D:{:02X} | E:{:02X} | H:{:02X} | L:{:02X} | CYCLES:{}",
             inst,
             bus.peek(self.regs.pc),
             bus.peek(self.regs.pc.wrapping_add(1)),
@@ -62,7 +62,7 @@ pub enum Reg {
 }
 
 impl Reg {
-    fn get_register_name(&self) -> String {
+    fn get_cb_register_name(&self) -> String {
         match *self {
             Reg::HL => "(HL)".to_string(),
             r => r.to_string(),
@@ -558,20 +558,20 @@ pub enum InstructionCB {
 impl Display for InstructionCB {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         let s = match *self {
-            InstructionCB::Rlc(r) => format!("rlc {}", r.get_register_name()),
-            InstructionCB::Rl(r) => format!("rl {}", r.get_register_name()),
-            InstructionCB::Rrc(r) => format!("rrc {}", r.get_register_name()),
-            InstructionCB::Rr(r) => format!("rr {}", r.get_register_name()),
-            InstructionCB::Sla(r) => format!("sla {}", r.get_register_name()),
-            InstructionCB::Swap(r) => format!("swap {}", r.get_register_name()),
-            InstructionCB::Sra(r) => format!("sra {}", r.get_register_name()),
-            InstructionCB::Srl(r) => format!("srl {}", r.get_register_name()),
-            InstructionCB::Bit(r, b) => format!("bit {}, {}", b, r.get_register_name()),
-            InstructionCB::Set(r, b) => format!("set {}, {}", b, r.get_register_name()),
-            InstructionCB::Res(r, b) => format!("res {}, {}", b, r.get_register_name()),
+            InstructionCB::Rlc(r) => format!("rlc {}", r.get_cb_register_name()),
+            InstructionCB::Rl(r) => format!("rl {}", r.get_cb_register_name()),
+            InstructionCB::Rrc(r) => format!("rrc {}", r.get_cb_register_name()),
+            InstructionCB::Rr(r) => format!("rr {}", r.get_cb_register_name()),
+            InstructionCB::Sla(r) => format!("sla {}", r.get_cb_register_name()),
+            InstructionCB::Swap(r) => format!("swap {}", r.get_cb_register_name()),
+            InstructionCB::Sra(r) => format!("sra {}", r.get_cb_register_name()),
+            InstructionCB::Srl(r) => format!("srl {}", r.get_cb_register_name()),
+            InstructionCB::Bit(r, b) => format!("bit {}, {}", b, r.get_cb_register_name()),
+            InstructionCB::Set(r, b) => format!("set {}, {}", b, r.get_cb_register_name()),
+            InstructionCB::Res(r, b) => format!("res {}, {}", b, r.get_cb_register_name()),
         };
 
-        write!(f, "{s:16}")
+        write!(f, "{s:15}")
     }
 }
 

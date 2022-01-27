@@ -1,11 +1,14 @@
-use self::registers::Registers;
+use self::{
+    instructions::{Dst, Src},
+    registers::{Flags, Registers},
+};
 
 mod instructions;
 mod registers;
 mod trace;
 
 pub struct Cpu {
-    cur_inst: u8,
+    cur_opcode: u8,
     regs: Registers,
     halted: bool,
     ime: bool,
@@ -27,7 +30,7 @@ pub trait Interface {
 impl Cpu {
     pub const fn new() -> Self {
         Self {
-            cur_inst: 0x00,
+            cur_opcode: 0x00,
             regs: Registers::new(),
             halted: false,
             ime: false,
@@ -49,11 +52,46 @@ impl Cpu {
     }
 
     fn fetch_instruction(&mut self, bus: &mut impl Interface) {
-        self.cur_inst = bus.read(self.regs.pc);
+        self.cur_opcode = bus.read(self.regs.pc);
         self.inc_pc();
     }
 
     fn inc_pc(&mut self) {
         self.regs.pc += 1;
+    }
+
+    fn nop(&self) {}
+
+    fn stop(&self) {
+        panic!("Stop instruction");
+    }
+
+    fn ccf(&mut self) {
+        self.regs.set_flags(Flags::N | Flags::H, false);
+        self.regs.set_flags(Flags::C, !self.regs.c());
+    }
+
+    fn scf(&mut self) {
+        self.regs.set_flags(Flags::N | Flags::H, false);
+        self.regs.set_flags(Flags::C, true);
+    }
+
+    fn di(&mut self) {
+        self.ime = false;
+    }
+
+    fn ei(&mut self) {
+        self.ime = true;
+    }
+
+    fn load<I, D, S>(&mut self, bus: &mut I, dst: D, src: S)
+    where
+        I: Interface,
+        D: Copy,
+        S: Copy,
+        Self: Dst<D> + Src<S>,
+    {
+        let data = self.read(bus, src);
+        self.write(bus, dst, data);
     }
 }

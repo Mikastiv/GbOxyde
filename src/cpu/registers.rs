@@ -57,4 +57,20 @@ impl Registers {
     pub fn set_flags(&mut self, flags: Flags, value: bool) {
         self.f.set(flags, value);
     }
+
+    pub fn hl(&self) -> u16 {
+        (u16::from(self.h) << 8) | u16::from(self.l)
+    }
+
+    pub fn set_hl(&mut self, value: u16) {
+        let (hi, lo) = get_reverse_bytes(value);
+        self.h = hi;
+        self.l = lo;
+    }
+}
+
+fn get_reverse_bytes(value: u16) -> (u8, u8) {
+    let hi = (value >> 8) as u8;
+    let lo = value as u8;
+    (hi, lo)
 }
