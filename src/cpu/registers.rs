@@ -1,5 +1,10 @@
 use bitflags::bitflags;
 
+use super::{
+    instructions::{Dst, Src},
+    Cpu, Interface,
+};
+
 bitflags! {
     pub struct Flags: u8 {
         const Z = 0b1000_0000;
@@ -7,6 +12,54 @@ bitflags! {
         const H = 0b0010_0000;
         const C = 0b0001_0000;
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Reg {
+    A,
+    B,
+    C,
+    D,
+    E,
+    H,
+    L,
+}
+
+impl Dst<Reg> for Cpu {
+    fn write(&mut self, _bus: &mut impl Interface, dst: Reg, data: u8) {
+        match dst {
+            Reg::A => self.regs.a = data,
+            Reg::B => self.regs.b = data,
+            Reg::C => self.regs.c = data,
+            Reg::D => self.regs.d = data,
+            Reg::E => self.regs.e = data,
+            Reg::H => self.regs.h = data,
+            Reg::L => self.regs.l = data,
+        }
+    }
+}
+
+impl Src<Reg> for Cpu {
+    fn read(&mut self, _bus: &mut impl Interface, src: Reg) -> u8 {
+        match src {
+            Reg::A => self.regs.a,
+            Reg::B => self.regs.b,
+            Reg::C => self.regs.c,
+            Reg::D => self.regs.d,
+            Reg::E => self.regs.e,
+            Reg::H => self.regs.h,
+            Reg::L => self.regs.l,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Reg16 {
+    BC,
+    DE,
+    HL,
+    SP,
+    AF,
 }
 
 pub struct Registers {
@@ -62,8 +115,20 @@ impl Registers {
         (u16::from(self.b) << 8) | u16::from(self.c)
     }
 
+    pub fn set_bc(&mut self, value: u16) {
+        let (hi, lo) = get_reverse_bytes(value);
+        self.b = hi;
+        self.c = lo;
+    }
+
     pub fn de(&self) -> u16 {
         (u16::from(self.d) << 8) | u16::from(self.e)
+    }
+
+    pub fn set_de(&mut self, value: u16) {
+        let (hi, lo) = get_reverse_bytes(value);
+        self.d = hi;
+        self.e = lo;
     }
 
     pub fn hl(&self) -> u16 {
@@ -84,6 +149,44 @@ impl Registers {
         let (hi, lo) = get_reverse_bytes(value);
         self.h = hi;
         self.l = lo;
+    }
+
+    pub fn inc_sp(&mut self) {
+        self.sp = self.sp.wrapping_add(1);
+    }
+
+    pub fn dec_sp(&mut self) {
+        self.sp = self.sp.wrapping_sub(1);
+    }
+
+    pub fn af(&self) -> u16 {
+        (u16::from(self.a) << 8) | u16::from(self.f.bits)
+    }
+
+    pub fn set_af(&mut self, value: u16) {
+        let (hi, lo) = get_reverse_bytes(value);
+        self.a = hi;
+        self.f = Flags::from_bits_truncate(lo);
+    }
+
+    pub fn read16(&self, src: Reg16) -> u16 {
+        match src {
+            Reg16::BC => self.bc(),
+            Reg16::DE => self.de(),
+            Reg16::HL => self.hl(),
+            Reg16::SP => self.sp,
+            Reg16::AF => self.af(),
+        }
+    }
+
+    pub fn write16(&mut self, dst: Reg16, data: u16) {
+        match dst {
+            Reg16::BC => self.set_bc(data),
+            Reg16::DE => self.set_de(data),
+            Reg16::HL => self.set_hl(data),
+            Reg16::SP => self.sp = data,
+            Reg16::AF => self.set_af(data),
+        }
     }
 }
 
