@@ -91,19 +91,19 @@ impl Registers {
         }
     }
 
-    pub const fn z(&self) -> bool {
+    pub const fn zf(&self) -> bool {
         self.f.contains(Flags::Z)
     }
 
-    pub const fn n(&self) -> bool {
+    pub const fn nf(&self) -> bool {
         self.f.contains(Flags::N)
     }
 
-    pub const fn h(&self) -> bool {
+    pub const fn hf(&self) -> bool {
         self.f.contains(Flags::H)
     }
 
-    pub const fn c(&self) -> bool {
+    pub const fn cf(&self) -> bool {
         self.f.contains(Flags::C)
     }
 

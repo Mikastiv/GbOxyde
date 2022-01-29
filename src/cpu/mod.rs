@@ -1,5 +1,5 @@
 use self::{
-    instructions::{Dst, Src},
+    instructions::{Condition, Dst, Rotate, Src},
     registers::{Flags, Reg16, Registers},
 };
 
@@ -69,6 +69,7 @@ impl Cpu {
     }
 
     fn push(&mut self, bus: &mut impl Interface, value: u16) {
+        bus.tick(1);
         self.regs.dec_sp();
         bus.write(self.regs.sp, (value >> 8) as u8);
         self.regs.dec_sp();
@@ -87,32 +88,13 @@ impl Cpu {
         self.regs.pc = self.regs.pc.wrapping_add(1);
     }
 
-    fn nop(&self) {}
-
-    fn stop(&self) {
-        panic!("Stop instruction");
-    }
-
-    fn halt(&mut self) {
-        self.halted = true;
-    }
-
-    fn ccf(&mut self) {
-        self.regs.set_flags(Flags::N | Flags::H, false);
-        self.regs.set_flags(Flags::C, !self.regs.c());
-    }
-
-    fn scf(&mut self) {
-        self.regs.set_flags(Flags::N | Flags::H, false);
-        self.regs.set_flags(Flags::C, true);
-    }
-
-    fn di(&mut self) {
-        self.ime = false;
-    }
-
-    fn ei(&mut self) {
-        self.ime = true;
+    fn check_cond(&self, cond: Condition) -> bool {
+        match cond {
+            Condition::NZ => !self.regs.zf(),
+            Condition::Z => self.regs.zf(),
+            Condition::NC => !self.regs.cf(),
+            Condition::C => self.regs.cf(),
+        }
     }
 
     fn ld<I, D, S>(&mut self, bus: &mut I, dst: D, src: S)
@@ -158,7 +140,6 @@ impl Cpu {
     }
 
     fn push16(&mut self, bus: &mut impl Interface, src: Reg16) {
-        bus.tick(1);
         let value = self.regs.read16(src);
         self.push(bus, value);
     }
@@ -228,7 +209,7 @@ impl Cpu {
         Self: Src<S>,
     {
         let value = self.read(bus, src);
-        self.regs.a = self.alu_add(value, self.regs.c());
+        self.regs.a = self.alu_add(value, self.regs.cf());
     }
 
     fn alu_sub(&mut self, value: u8, cy: bool) -> u8 {
@@ -263,7 +244,7 @@ impl Cpu {
         Self: Src<S>,
     {
         let value = self.read(bus, src);
-        self.regs.a = self.alu_sub(value, self.regs.c());
+        self.regs.a = self.alu_sub(value, self.regs.cf());
     }
 
     fn and<I, S>(&mut self, bus: &mut I, src: S)
@@ -364,5 +345,298 @@ impl Cpu {
         let value = self.regs.read16(dst);
         self.regs.write16(dst, value.wrapping_sub(1));
         bus.tick(1);
+    }
+
+    fn nop(&self) {}
+
+    fn stop(&self) {
+        panic!("Stop instruction");
+    }
+
+    fn halt(&mut self) {
+        self.halted = true;
+    }
+
+    fn ccf(&mut self) {
+        self.regs.set_flags(Flags::N | Flags::H, false);
+        self.regs.set_flags(Flags::C, !self.regs.cf());
+    }
+
+    fn scf(&mut self) {
+        self.regs.set_flags(Flags::N | Flags::H, false);
+        self.regs.set_flags(Flags::C, true);
+    }
+
+    fn di(&mut self) {
+        self.ime = false;
+    }
+
+    fn ei(&mut self) {
+        self.ime = true;
+    }
+
+    fn daa(&mut self) {
+        let a = self.regs.a;
+        let n = self.regs.nf();
+        let c = self.regs.cf();
+        let h = self.regs.hf();
+
+        let mut carry = false;
+        let mut adjust = 0x00;
+
+        if h || (!n && (a & 0x0F) > 0x09) {
+            adjust |= 0x06;
+        }
+
+        if c || (!n && a > 0x99) {
+            adjust |= 0x60;
+            carry = true;
+        }
+
+        match n {
+            true => self.regs.a = a.wrapping_sub(adjust),
+            false => self.regs.a = a.wrapping_add(adjust),
+        }
+
+        self.regs.set_flags(Flags::C, carry);
+        self.regs.set_flags(Flags::H, false);
+        self.regs.set_flags(Flags::Z, self.regs.a == 0);
+    }
+
+    fn cpl(&mut self) {
+        self.regs.a = !self.regs.a;
+        self.regs.set_flags(Flags::N | Flags::H, true);
+    }
+
+    fn alu_rl(&mut self, value: u8, cy: bool) -> u8 {
+        let carry = (value & 0x80) != 0x00;
+        let result = (value << 1) | u8::from(cy);
+
+        self.regs.set_flags(Flags::C, carry);
+        self.regs.set_flags(Flags::N | Flags::H, false);
+        self.regs.set_flags(Flags::Z, result == 0);
+
+        result
+    }
+
+    fn alu_rr(&mut self, value: u8, cy: bool) -> u8 {
+        let carry = (value & 0x01) != 0x00;
+        let result = (u8::from(cy) << 7) | (value >> 1);
+
+        self.regs.set_flags(Flags::C, carry);
+        self.regs.set_flags(Flags::N | Flags::H, false);
+        self.regs.set_flags(Flags::Z, result == 0);
+
+        result
+    }
+
+    fn rotate_a(&mut self, r: Rotate) {
+        let value = self.regs.a;
+        self.regs.a = match r {
+            Rotate::Rlc => self.alu_rl(value, (value & 0x80) != 0x00),
+            Rotate::Rl => self.alu_rl(value, self.regs.cf()),
+            Rotate::Rrc => self.alu_rr(value, (value & 0x01) != 0x00),
+            Rotate::Rr => self.alu_rr(value, self.regs.cf()),
+        };
+        self.regs.set_flags(Flags::Z, false);
+    }
+
+    fn rotate<I, D>(&mut self, bus: &mut I, dst: D, r: Rotate)
+    where
+        I: Interface,
+        D: Copy,
+        Self: Dst<D> + Src<D>,
+    {
+        let value = self.read(bus, dst);
+        let result = match r {
+            Rotate::Rlc => self.alu_rl(value, (value & 0x80) != 0x00),
+            Rotate::Rl => self.alu_rl(value, self.regs.cf()),
+            Rotate::Rrc => self.alu_rr(value, (value & 0x01) != 0x00),
+            Rotate::Rr => self.alu_rr(value, self.regs.cf()),
+        };
+        self.write(bus, dst, result);
+    }
+
+    fn jump(&mut self, bus: &mut impl Interface, address: u16) {
+        self.regs.pc = address;
+        bus.tick(1);
+    }
+
+    fn jp(&mut self, bus: &mut impl Interface) {
+        let address = self.imm_word(bus);
+        self.jump(bus, address);
+    }
+
+    fn jp_hl(&mut self) {
+        self.regs.pc = self.regs.hl();
+    }
+
+    fn jp_cond(&mut self, bus: &mut impl Interface, cond: Condition) {
+        let address = self.imm_word(bus);
+        if self.check_cond(cond) {
+            self.jump(bus, address);
+        }
+    }
+
+    fn jump_relative(&mut self, bus: &mut impl Interface, offset: i8) {
+        let address = self.regs.pc.wrapping_add(offset as i16 as u16);
+        self.jump(bus, address);
+    }
+
+    fn jr(&mut self, bus: &mut impl Interface) {
+        let offset = self.imm(bus) as i8;
+        self.jump_relative(bus, offset);
+    }
+
+    fn jr_cond(&mut self, bus: &mut impl Interface, cond: Condition) {
+        let offset = self.imm(bus) as i8;
+        if self.check_cond(cond) {
+            self.jump_relative(bus, offset);
+        }
+    }
+
+    fn call_func(&mut self, bus: &mut impl Interface, address: u16) {
+        self.push(bus, self.regs.pc);
+        self.regs.pc = address;
+    }
+
+    fn call(&mut self, bus: &mut impl Interface) {
+        let address = self.imm_word(bus);
+        self.call_func(bus, address);
+    }
+
+    fn call_cond(&mut self, bus: &mut impl Interface, cond: Condition) {
+        let address = self.imm_word(bus);
+        if self.check_cond(cond) {
+            self.call_func(bus, address);
+        }
+    }
+
+    fn ret(&mut self, bus: &mut impl Interface) {
+        let address = self.pop(bus);
+        self.jump(bus, address);
+    }
+
+    fn ret_cond(&mut self, bus: &mut impl Interface, cond: Condition) {
+        bus.tick(1);
+        if self.check_cond(cond) {
+            self.ret(bus);
+        }
+    }
+
+    fn reti(&mut self, bus: &mut impl Interface) {
+        self.ret(bus);
+        self.ime = true;
+    }
+
+    fn rst(&mut self, bus: &mut impl Interface) {
+        let address = (self.cur_opcode & 0xF8).wrapping_sub(0xC0);
+        self.push(bus, self.regs.pc);
+        self.regs.pc = address as u16;
+    }
+
+    fn undefined(&self) {
+        panic!("Undefined opcode: {:02X}", self.cur_opcode);
+    }
+
+    fn sla<I, D>(&mut self, bus: &mut I, dst: D)
+    where
+        I: Interface,
+        D: Copy,
+        Self: Dst<D> + Src<D>,
+    {
+        let value = self.read(bus, dst);
+        let carry = (value & 0x80) != 0x00;
+        let result = value << 1;
+
+        self.regs.set_flags(Flags::C, carry);
+        self.regs.set_flags(Flags::H | Flags::N, false);
+        self.regs.set_flags(Flags::Z, result == 0);
+
+        self.write(bus, dst, result);
+    }
+
+    fn sra<I, D>(&mut self, bus: &mut I, dst: D)
+    where
+        I: Interface,
+        D: Copy,
+        Self: Dst<D> + Src<D>,
+    {
+        let value = self.read(bus, dst);
+        let carry = (value & 0x01) != 0x00;
+        let hi = value & 0x80;
+        let result = hi | (value >> 1);
+
+        self.regs.set_flags(Flags::C, carry);
+        self.regs.set_flags(Flags::H | Flags::N, false);
+        self.regs.set_flags(Flags::Z, result == 0);
+
+        self.write(bus, dst, result);
+    }
+
+    fn srl<I, D>(&mut self, bus: &mut I, dst: D)
+    where
+        I: Interface,
+        D: Copy,
+        Self: Dst<D> + Src<D>,
+    {
+        let value = self.read(bus, dst);
+        let carry = (value & 0x01) != 0x00;
+        let result = value >> 1;
+
+        self.regs.set_flags(Flags::C, carry);
+        self.regs.set_flags(Flags::H | Flags::N, false);
+        self.regs.set_flags(Flags::Z, result == 0);
+
+        self.write(bus, dst, result);
+    }
+
+    fn swap<I, D>(&mut self, bus: &mut I, dst: D)
+    where
+        I: Interface,
+        D: Copy,
+        Self: Dst<D> + Src<D>,
+    {
+        let value = self.read(bus, dst);
+        let result = (value << 4) | (value >> 4);
+
+        self.regs.set_flags(Flags::H | Flags::N | Flags::C, false);
+        self.regs.set_flags(Flags::Z, result == 0);
+
+        self.write(bus, dst, result);
+    }
+
+    fn bit<I, D>(&mut self, bus: &mut I, dst: D, bit: u8)
+    where
+        I: Interface,
+        D: Copy,
+        Self: Dst<D> + Src<D>,
+    {
+        let value = self.read(bus, dst);
+        let result = value & (1 << bit);
+
+        self.regs.set_flags(Flags::Z, result == 0);
+        self.regs.set_flags(Flags::N, false);
+        self.regs.set_flags(Flags::H, true);
+    }
+
+    fn set<I, D>(&mut self, bus: &mut I, dst: D, bit: u8)
+    where
+        I: Interface,
+        D: Copy,
+        Self: Dst<D> + Src<D>,
+    {
+        let value = self.read(bus, dst);
+        self.write(bus, dst, value | (1 << bit));
+    }
+
+    fn res<I, D>(&mut self, bus: &mut I, dst: D, bit: u8)
+    where
+        I: Interface,
+        D: Copy,
+        Self: Dst<D> + Src<D>,
+    {
+        let value = self.read(bus, dst);
+        self.write(bus, dst, value & !(1 << bit));
     }
 }
