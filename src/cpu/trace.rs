@@ -9,7 +9,7 @@ impl Cpu {
         self.print_inst(bus, inst);
 
         if let Instruction::PrefixCB = *inst {
-            let opcode = bus.peek(self.regs.pc);
+            let opcode = bus.peek(self.regs.pc.wrapping_add(1));
             let inst_cb = disassemble_cb(opcode);
             self.print_inst(bus, inst_cb);
         }
