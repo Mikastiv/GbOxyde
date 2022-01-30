@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter, Result};
 
-use super::{Cpu, Interface};
+use super::{instructions::Condition, Cpu, Interface};
 
 impl Cpu {
     pub fn trace(&self, bus: &mut impl Interface) {
@@ -37,16 +37,16 @@ impl Cpu {
     }
 }
 
-pub fn disassemble(opcode: u8) -> &'static Instruction {
+fn disassemble(opcode: u8) -> &'static Instruction {
     &INSTRUCTIONS[opcode as usize]
 }
 
-pub fn disassemble_cb(opcode: u8) -> &'static InstructionCB {
+fn disassemble_cb(opcode: u8) -> &'static InstructionCB {
     &INSTRUCTIONS_CB[opcode as usize]
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum Reg {
+enum Reg {
     A,
     B,
     C,
@@ -91,28 +91,20 @@ impl Display for Reg {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum Cond {
-    NZ,
-    Z,
-    NC,
-    C,
-}
-
-impl Display for Cond {
+impl Display for Condition {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         let c = match *self {
-            Cond::NZ => "NZ",
-            Cond::Z => "Z",
-            Cond::NC => "NC",
-            Cond::C => "C",
+            Condition::NZ => "NZ",
+            Condition::Z => "Z",
+            Condition::NC => "NC",
+            Condition::C => "C",
         };
 
         write!(f, "{}", c)
     }
 }
 
-pub enum Instruction {
+enum Instruction {
     LdR8R8(Reg, Reg),
     LdR8D8(Reg),
     LdR8MemR16(Reg, Reg),
@@ -181,13 +173,13 @@ pub enum Instruction {
     Ei,
     JpD16,
     JpHL,
-    JpD16Cond(Cond),
+    JpD16Condition(Condition),
     JrD8,
-    JrD8Cond(Cond),
+    JrD8Condition(Condition),
     CallD16,
-    CallD16Cond(Cond),
+    CallD16Condition(Condition),
     Ret,
-    RetCond(Cond),
+    RetCondition(Condition),
     Reti,
     Rst(u8),
     PrefixCB,
@@ -265,13 +257,13 @@ impl Display for Instruction {
             Instruction::Ei => "ei".to_string(),
             Instruction::JpD16 => "jp nn".to_string(),
             Instruction::JpHL => "jp HL".to_string(),
-            Instruction::JpD16Cond(c) => format!("jp {}, nn", c),
+            Instruction::JpD16Condition(c) => format!("jp {}, nn", c),
             Instruction::JrD8 => "jr dd".to_string(),
-            Instruction::JrD8Cond(c) => format!("jr {}, dd", c),
+            Instruction::JrD8Condition(c) => format!("jr {}, dd", c),
             Instruction::CallD16 => "call nn".to_string(),
-            Instruction::CallD16Cond(c) => format!("call {}, nn", c),
+            Instruction::CallD16Condition(c) => format!("call {}, nn", c),
             Instruction::Ret => "ret".to_string(),
-            Instruction::RetCond(c) => format!("ret {}", c),
+            Instruction::RetCondition(c) => format!("ret {}", c),
             Instruction::Reti => "reti".to_string(),
             Instruction::Rst(addr) => format!("rst {:04X}", addr),
             Instruction::Undefined(opcode) => format!("undefined {:02X}", opcode),
@@ -282,7 +274,7 @@ impl Display for Instruction {
     }
 }
 
-pub static INSTRUCTIONS: [Instruction; 0x100] = [
+static INSTRUCTIONS: [Instruction; 0x100] = [
     Instruction::Nop,
     Instruction::LdR16D16(Reg::BC),
     Instruction::LdMemR16R8(Reg::BC, Reg::A),
@@ -315,7 +307,7 @@ pub static INSTRUCTIONS: [Instruction; 0x100] = [
     Instruction::DecR8(Reg::E),
     Instruction::LdR8D8(Reg::E),
     Instruction::Rra,
-    Instruction::JrD8Cond(Cond::NZ),
+    Instruction::JrD8Condition(Condition::NZ),
     Instruction::LdR16D16(Reg::HL),
     Instruction::LdiMemHLA,
     Instruction::IncR16(Reg::HL),
@@ -323,7 +315,7 @@ pub static INSTRUCTIONS: [Instruction; 0x100] = [
     Instruction::DecR8(Reg::H),
     Instruction::LdR8D8(Reg::H),
     Instruction::Daa,
-    Instruction::JrD8Cond(Cond::Z),
+    Instruction::JrD8Condition(Condition::Z),
     Instruction::AddHLR16(Reg::HL),
     Instruction::LdiAMemHL,
     Instruction::DecR16(Reg::HL),
@@ -331,7 +323,7 @@ pub static INSTRUCTIONS: [Instruction; 0x100] = [
     Instruction::DecR8(Reg::L),
     Instruction::LdR8D8(Reg::L),
     Instruction::Cpl,
-    Instruction::JrD8Cond(Cond::NC),
+    Instruction::JrD8Condition(Condition::NC),
     Instruction::LdR16D16(Reg::SP),
     Instruction::LddMemHLA,
     Instruction::IncR16(Reg::SP),
@@ -339,7 +331,7 @@ pub static INSTRUCTIONS: [Instruction; 0x100] = [
     Instruction::DecMemHL,
     Instruction::LdMemHLD8,
     Instruction::Scf,
-    Instruction::JrD8Cond(Cond::C),
+    Instruction::JrD8Condition(Condition::C),
     Instruction::AddHLR16(Reg::SP),
     Instruction::LddAMemHL,
     Instruction::DecR16(Reg::SP),
@@ -475,35 +467,35 @@ pub static INSTRUCTIONS: [Instruction; 0x100] = [
     Instruction::CpR8(Reg::L),
     Instruction::CpMemHL,
     Instruction::CpR8(Reg::A),
-    Instruction::RetCond(Cond::NZ),
+    Instruction::RetCondition(Condition::NZ),
     Instruction::PopR16(Reg::BC),
-    Instruction::JpD16Cond(Cond::NZ),
+    Instruction::JpD16Condition(Condition::NZ),
     Instruction::JpD16,
-    Instruction::CallD16Cond(Cond::NZ),
+    Instruction::CallD16Condition(Condition::NZ),
     Instruction::PushR16(Reg::BC),
     Instruction::AddD8,
     Instruction::Rst(0x00),
-    Instruction::RetCond(Cond::Z),
+    Instruction::RetCondition(Condition::Z),
     Instruction::Ret,
-    Instruction::JpD16Cond(Cond::Z),
+    Instruction::JpD16Condition(Condition::Z),
     Instruction::PrefixCB,
-    Instruction::CallD16Cond(Cond::Z),
+    Instruction::CallD16Condition(Condition::Z),
     Instruction::CallD16,
     Instruction::AdcD8,
     Instruction::Rst(0x08),
-    Instruction::RetCond(Cond::NC),
+    Instruction::RetCondition(Condition::NC),
     Instruction::PopR16(Reg::DE),
-    Instruction::JpD16Cond(Cond::NC),
+    Instruction::JpD16Condition(Condition::NC),
     Instruction::Undefined(0xD3),
-    Instruction::CallD16Cond(Cond::NC),
+    Instruction::CallD16Condition(Condition::NC),
     Instruction::PushR16(Reg::DE),
     Instruction::SubD8,
     Instruction::Rst(0x10),
-    Instruction::RetCond(Cond::C),
+    Instruction::RetCondition(Condition::C),
     Instruction::Reti,
-    Instruction::JpD16Cond(Cond::C),
+    Instruction::JpD16Condition(Condition::C),
     Instruction::Undefined(0xDB),
-    Instruction::CallD16Cond(Cond::C),
+    Instruction::CallD16Condition(Condition::C),
     Instruction::Undefined(0xDD),
     Instruction::SbcD8,
     Instruction::Rst(0x18),
@@ -541,7 +533,7 @@ pub static INSTRUCTIONS: [Instruction; 0x100] = [
     Instruction::Rst(0x38),
 ];
 
-pub enum InstructionCB {
+enum InstructionCB {
     Rlc(Reg),
     Rl(Reg),
     Rrc(Reg),
@@ -575,7 +567,7 @@ impl Display for InstructionCB {
     }
 }
 
-pub static INSTRUCTIONS_CB: [InstructionCB; 0x100] = [
+static INSTRUCTIONS_CB: [InstructionCB; 0x100] = [
     InstructionCB::Rlc(Reg::B),
     InstructionCB::Rlc(Reg::C),
     InstructionCB::Rlc(Reg::D),

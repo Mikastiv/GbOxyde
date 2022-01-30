@@ -1,5 +1,6 @@
 use super::{
     registers::{Reg, Reg16},
+    rw::{Address, Imm},
     Cpu, Interface,
 };
 
@@ -25,68 +26,6 @@ pub enum Condition {
     Z,
     NC,
     C,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct Imm;
-
-impl Src<Imm> for Cpu {
-    fn read(&mut self, bus: &mut impl Interface, _src: Imm) -> u8 {
-        self.imm(bus)
-    }
-}
-
-#[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Clone, Copy)]
-pub enum Address {
-    HL,
-    BC,
-    DE,
-    HLI,
-    HLD,
-    Absolute,
-    ZeroPage,
-    ZeroPageC,
-}
-
-impl Cpu {
-    fn get_address(&mut self, bus: &mut impl Interface, addr: Address) -> u16 {
-        match addr {
-            Address::HL => self.regs.hl(),
-            Address::BC => self.regs.bc(),
-            Address::DE => self.regs.de(),
-            Address::HLI => {
-                let hl = self.regs.hl();
-                self.regs.inc_hl();
-                hl
-            }
-            Address::HLD => {
-                let hl = self.regs.hl();
-                self.regs.dec_hl();
-                hl
-            }
-            Address::Absolute => self.imm_word(bus),
-            Address::ZeroPage => {
-                let data = self.imm(bus);
-                0xFF00 | data as u16
-            }
-            Address::ZeroPageC => 0xFF00 | self.regs.c as u16,
-        }
-    }
-}
-
-impl Dst<Address> for Cpu {
-    fn write(&mut self, bus: &mut impl Interface, dst: Address, data: u8) {
-        let address = self.get_address(bus, dst);
-        bus.write(address, data);
-    }
-}
-
-impl Src<Address> for Cpu {
-    fn read(&mut self, bus: &mut impl Interface, src: Address) -> u8 {
-        let address = self.get_address(bus, src);
-        bus.read(address)
-    }
 }
 
 impl Cpu {
@@ -190,10 +129,10 @@ impl Cpu {
             0xF2 => self.ld(bus, Reg::A, Address::ZeroPageC),
             0xEA => self.ld(bus, Address::Absolute, Reg::A),
             0xFA => self.ld(bus, Reg::A, Address::Absolute),
-            0x01 => self.ld_d16(bus, Reg16::BC),
-            0x11 => self.ld_d16(bus, Reg16::DE),
-            0x21 => self.ld_d16(bus, Reg16::HL),
-            0x31 => self.ld_d16(bus, Reg16::SP),
+            0x01 => self.ld16(bus, Reg16::BC),
+            0x11 => self.ld16(bus, Reg16::DE),
+            0x21 => self.ld16(bus, Reg16::HL),
+            0x31 => self.ld16(bus, Reg16::SP),
             0x08 => self.ld_mem_d16_sp(bus),
             0xF8 => self.ld_hl_sp_d8(bus),
             0xF9 => self.ld_sp_hl(bus),

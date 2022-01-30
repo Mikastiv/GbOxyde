@@ -1,10 +1,5 @@
 use bitflags::bitflags;
 
-use super::{
-    instructions::{Dst, Src},
-    Cpu, Interface,
-};
-
 bitflags! {
     pub struct Flags: u8 {
         const Z = 0b1000_0000;
@@ -23,34 +18,6 @@ pub enum Reg {
     E,
     H,
     L,
-}
-
-impl Dst<Reg> for Cpu {
-    fn write(&mut self, _bus: &mut impl Interface, dst: Reg, data: u8) {
-        match dst {
-            Reg::A => self.regs.a = data,
-            Reg::B => self.regs.b = data,
-            Reg::C => self.regs.c = data,
-            Reg::D => self.regs.d = data,
-            Reg::E => self.regs.e = data,
-            Reg::H => self.regs.h = data,
-            Reg::L => self.regs.l = data,
-        }
-    }
-}
-
-impl Src<Reg> for Cpu {
-    fn read(&mut self, _bus: &mut impl Interface, src: Reg) -> u8 {
-        match src {
-            Reg::A => self.regs.a,
-            Reg::B => self.regs.b,
-            Reg::C => self.regs.c,
-            Reg::D => self.regs.d,
-            Reg::E => self.regs.e,
-            Reg::H => self.regs.h,
-            Reg::L => self.regs.l,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy)]

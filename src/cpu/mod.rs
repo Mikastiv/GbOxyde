@@ -5,6 +5,7 @@ use self::{
 
 mod instructions;
 mod registers;
+mod rw;
 mod trace;
 
 pub struct Cpu {
@@ -108,7 +109,7 @@ impl Cpu {
         self.write(bus, dst, value);
     }
 
-    fn ld_d16(&mut self, bus: &mut impl Interface, dst: Reg16) {
+    fn ld16(&mut self, bus: &mut impl Interface, dst: Reg16) {
         let value = self.imm_word(bus);
         self.regs.write16(dst, value);
     }
@@ -530,7 +531,7 @@ impl Cpu {
     }
 
     fn rst(&mut self, bus: &mut impl Interface) {
-        let address = (self.cur_opcode & 0xF8).wrapping_sub(0xC0);
+        let address = self.cur_opcode & 0x38;
         self.push(bus, self.regs.pc);
         self.regs.pc = address as u16;
     }
