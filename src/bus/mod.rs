@@ -50,7 +50,7 @@ impl cpu::Interface for Bus {
 
     fn tick(&mut self, count: usize) {
         for _ in 0..count {
-            self.cycles += 1;
+            self.cycles = self.cycles.wrapping_add(1);
         }
     }
 

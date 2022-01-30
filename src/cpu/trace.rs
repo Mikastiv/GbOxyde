@@ -2,11 +2,17 @@ use std::fmt::{Display, Formatter, Result};
 
 use super::{instructions::Condition, Cpu, Interface};
 
+const INST_PRINT_WIDTH: usize = 17;
+
 impl Cpu {
     pub fn trace(&self, bus: &mut impl Interface) {
         let opcode = bus.peek(self.regs.pc);
         let inst = disassemble(opcode);
-        self.print_inst(bus, inst);
+        let bytes = [
+            bus.peek(self.regs.pc.wrapping_add(1)),
+            bus.peek(self.regs.pc.wrapping_add(2)),
+        ];
+        self.print_inst(bus, inst.replace_value(bytes));
 
         if let Instruction::PrefixCB = *inst {
             let opcode = bus.peek(self.regs.pc.wrapping_add(1));
@@ -17,7 +23,7 @@ impl Cpu {
 
     fn print_inst<I: Interface, Inst: Display>(&self, bus: &mut I, inst: Inst) {
         println!(
-            "{} | {:02X} {:02X} {:02X} | PC:{:04X} | SP:{:04X} | A:{:02X} | F:{:02X} | B:{:02X} | C:{:02X} | D:{:02X} | E:{:02X} | H:{:02X} | L:{:02X} | CYCLES:{}",
+            "{:w$} | {:02X} {:02X} {:02X} | PC:{:04X} | SP:{:04X} | A:{:02X} | F:{:02X} | B:{:02X} | C:{:02X} | D:{:02X} | E:{:02X} | H:{:02X} | L:{:02X} | CYCLES:{}",
             inst,
             bus.peek(self.regs.pc),
             bus.peek(self.regs.pc.wrapping_add(1)),
@@ -33,6 +39,7 @@ impl Cpu {
             self.regs.h,
             self.regs.l,
             bus.cycles(),
+            w = INST_PRINT_WIDTH,
         );
     }
 }
@@ -78,7 +85,7 @@ impl Display for Reg {
             Reg::C => "C",
             Reg::D => "D",
             Reg::E => "E",
-            Reg::H => "F",
+            Reg::H => "H",
             Reg::L => "L",
             Reg::AF => "AF",
             Reg::BC => "BC",
@@ -190,51 +197,51 @@ impl Display for Instruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         let s = match *self {
             Instruction::LdR8R8(r1, r2) => format!("ld {}, {}", r1, r2),
-            Instruction::LdR8D8(r) => format!("ld {}, n", r),
+            Instruction::LdR8D8(r) => format!("ld {}, $n", r),
             Instruction::LdR8MemR16(r1, r2) => format!("ld {}, ({})", r1, r2),
             Instruction::LdMemR16R8(r1, r2) => format!("ld ({}), {}", r1, r2),
-            Instruction::LdMemHLD8 => "ld (HL), n".to_string(),
-            Instruction::LdAMemD16 => "ld A, (nn)".to_string(),
-            Instruction::LdMemD16A => "ld (nn), A".to_string(),
-            Instruction::LdAMemD8 => "ld A, (FF00+n)".to_string(),
-            Instruction::LdMemD8A => "ld (FF00+n), A".to_string(),
+            Instruction::LdMemHLD8 => "ld (HL), $n".to_string(),
+            Instruction::LdAMemD16 => "ld A, ($nn)".to_string(),
+            Instruction::LdMemD16A => "ld ($nn), A".to_string(),
+            Instruction::LdAMemD8 => "ld A, (FF00+$n)".to_string(),
+            Instruction::LdMemD8A => "ld (FF00+$n), A".to_string(),
             Instruction::LdAMemC => "ld A, (FF00+C)".to_string(),
             Instruction::LdMemCA => "ld (FF00+C), A".to_string(),
             Instruction::LdiMemHLA => "ldi (HL), A".to_string(),
             Instruction::LdiAMemHL => "ldi A, (HL)".to_string(),
             Instruction::LddMemHLA => "ldd (HL), A".to_string(),
             Instruction::LddAMemHL => "ldd A, (HL)".to_string(),
-            Instruction::LdR16D16(r) => format!("ld {}, nn", r),
-            Instruction::LdMemD16SP => "ld (nn), SP".to_string(),
+            Instruction::LdR16D16(r) => format!("ld {}, $nn", r),
+            Instruction::LdMemD16SP => "ld ($nn), SP".to_string(),
             Instruction::LdSPHL => "ld SP, HL".to_string(),
-            Instruction::LdHLSPD8 => "ld HL, SP+dd".to_string(),
+            Instruction::LdHLSPD8 => "ld HL, SP+$dd".to_string(),
             Instruction::PushR16(r) => format!("push {}", r),
             Instruction::PopR16(r) => format!("pop {}", r),
             Instruction::AddR8(r) => format!("add A, {}", r),
-            Instruction::AddD8 => "add A, n".to_string(),
+            Instruction::AddD8 => "add A, $n".to_string(),
             Instruction::AddMemHL => "add A, (HL)".to_string(),
             Instruction::AddHLR16(r) => format!("add HL, {}", r),
-            Instruction::AddSPD8 => "add SP, dd".to_string(),
+            Instruction::AddSPD8 => "add SP, $dd".to_string(),
             Instruction::AdcR8(r) => format!("adc A, {}", r),
-            Instruction::AdcD8 => "adc A, n".to_string(),
+            Instruction::AdcD8 => "adc A, $n".to_string(),
             Instruction::AdcMemHL => "adc A, (HL)".to_string(),
             Instruction::SubR8(r) => format!("sub {}", r),
-            Instruction::SubD8 => "sub n".to_string(),
+            Instruction::SubD8 => "sub $n".to_string(),
             Instruction::SubMemHL => "sub (HL)".to_string(),
             Instruction::SbcR8(r) => format!("sbc A, {}", r),
-            Instruction::SbcD8 => "sbc A, n".to_string(),
+            Instruction::SbcD8 => "sbc A, $n".to_string(),
             Instruction::SbcMemHL => "sbc A, (HL)".to_string(),
             Instruction::AndR8(r) => format!("and {}", r),
-            Instruction::AndD8 => "and n".to_string(),
+            Instruction::AndD8 => "and $n".to_string(),
             Instruction::AndMemHL => "and (HL)".to_string(),
             Instruction::XorR8(r) => format!("xor {}", r),
-            Instruction::XorD8 => "xor n".to_string(),
+            Instruction::XorD8 => "xor $n".to_string(),
             Instruction::XorMemHL => "xor (HL)".to_string(),
             Instruction::OrR8(r) => format!("or {}", r),
-            Instruction::OrD8 => "or n".to_string(),
+            Instruction::OrD8 => "or $n".to_string(),
             Instruction::OrMemHL => "or (HL)".to_string(),
             Instruction::CpR8(r) => format!("cp {}", r),
-            Instruction::CpD8 => "cp n".to_string(),
+            Instruction::CpD8 => "cp $n".to_string(),
             Instruction::CpMemHL => "cp (HL)".to_string(),
             Instruction::IncR8(r) => format!("inc {}", r),
             Instruction::IncMemHL => "inc (HL)".to_string(),
@@ -255,13 +262,13 @@ impl Display for Instruction {
             Instruction::Stop => "stop".to_string(),
             Instruction::Di => "di".to_string(),
             Instruction::Ei => "ei".to_string(),
-            Instruction::JpD16 => "jp nn".to_string(),
+            Instruction::JpD16 => "jp $nn".to_string(),
             Instruction::JpHL => "jp HL".to_string(),
-            Instruction::JpD16Condition(c) => format!("jp {}, nn", c),
-            Instruction::JrD8 => "jr dd".to_string(),
-            Instruction::JrD8Condition(c) => format!("jr {}, dd", c),
-            Instruction::CallD16 => "call nn".to_string(),
-            Instruction::CallD16Condition(c) => format!("call {}, nn", c),
+            Instruction::JpD16Condition(c) => format!("jp {}, $nn", c),
+            Instruction::JrD8 => "jr $dd".to_string(),
+            Instruction::JrD8Condition(c) => format!("jr {}, $dd", c),
+            Instruction::CallD16 => "call $nn".to_string(),
+            Instruction::CallD16Condition(c) => format!("call {}, $nn", c),
             Instruction::Ret => "ret".to_string(),
             Instruction::RetCondition(c) => format!("ret {}", c),
             Instruction::Reti => "reti".to_string(),
@@ -270,7 +277,49 @@ impl Display for Instruction {
             Instruction::PrefixCB => "prefix cb".to_string(),
         };
 
-        write!(f, "{:15}", s)
+        write!(f, "{s}")
+    }
+}
+
+impl Instruction {
+    fn replace_value(&self, bytes: [u8; 2]) -> String {
+        match self {
+            Instruction::LdR8D8(_)
+            | Instruction::LdMemHLD8
+            | Instruction::AddD8
+            | Instruction::AdcD8
+            | Instruction::SubD8
+            | Instruction::SbcD8
+            | Instruction::AndD8
+            | Instruction::XorD8
+            | Instruction::OrD8
+            | Instruction::CpD8 => self
+                .to_string()
+                .replace("$n", format!("${:02X}", bytes[0]).as_str()),
+            Instruction::LdAMemD8 | Instruction::LdMemD8A => self.to_string().replace(
+                "FF00+$n",
+                format!("${:04X}", 0xFF00 | bytes[0] as u16).as_str(),
+            ),
+            Instruction::LdAMemD16
+            | Instruction::LdMemD16A
+            | Instruction::LdR16D16(_)
+            | Instruction::LdMemD16SP
+            | Instruction::JpD16
+            | Instruction::JpD16Condition(_)
+            | Instruction::CallD16
+            | Instruction::CallD16Condition(_) => self.to_string().replace(
+                "$nn",
+                format!("${:04X}", u16::from_le_bytes(bytes)).as_str(),
+            ),
+            Instruction::LdHLSPD8
+            | Instruction::AddSPD8
+            | Instruction::JrD8
+            | Instruction::JrD8Condition(_) => self.to_string().replace(
+                "$dd",
+                format!("${:02X} ({:+})", bytes[0], bytes[0] as i8).as_str(),
+            ),
+            inst => inst.to_string(),
+        }
     }
 }
 
@@ -563,7 +612,7 @@ impl Display for InstructionCB {
             InstructionCB::Res(r, b) => format!("res {}, {}", b, r.get_cb_register_name()),
         };
 
-        write!(f, "{s:15}")
+        write!(f, "{s:w$}", w = INST_PRINT_WIDTH)
     }
 }
 

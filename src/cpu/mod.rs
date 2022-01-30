@@ -20,7 +20,6 @@ pub trait Interface {
     fn read(&mut self, address: u16) -> u8 {
         let data = self.peek(address);
         self.tick(1);
-
         data
     }
     fn write(&mut self, address: u16, data: u8);
