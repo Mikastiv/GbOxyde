@@ -27,6 +27,15 @@ pub enum Condition {
     C,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct Imm;
+
+impl Src<Imm> for Cpu {
+    fn read(&mut self, bus: &mut impl Interface, _src: Imm) -> u8 {
+        self.imm(bus)
+    }
+}
+
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Copy)]
 pub enum Address {
@@ -38,15 +47,6 @@ pub enum Address {
     Absolute,
     ZeroPage,
     ZeroPageC,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct Imm;
-
-impl Src<Imm> for Cpu {
-    fn read(&mut self, bus: &mut impl Interface, _src: Imm) -> u8 {
-        self.imm(bus)
-    }
 }
 
 impl Cpu {
