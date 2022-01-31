@@ -76,8 +76,8 @@ impl Cpu {
                 }
             }
             false => {
-                // self.dbg.update(bus);
-                // self.dbg.print();
+                self.dbg.update(bus);
+                self.dbg.print();
                 self.fetch_instruction(bus);
                 self.execute(bus);
             }
@@ -184,8 +184,8 @@ impl Cpu {
     }
 
     fn ld_sp_hl(&mut self, bus: &mut impl Interface) {
-        self.regs.sp = self.regs.hl();
         bus.tick(1);
+        self.regs.sp = self.regs.hl();
     }
 
     fn ld_mem_d16_sp(&mut self, bus: &mut impl Interface) {
@@ -222,7 +222,7 @@ impl Cpu {
     fn alu_add(&mut self, value: u8, cy: bool) -> u8 {
         let a = self.regs.a;
         let cy = cy as u8;
-        let result = u16::from(a) + u16::from(value) + u16::from(cy);
+        let result = a as u16 + value as u16 + cy as u16;
 
         let carry = result > 0xFF;
         let half_carry = (a & 0x0F) + (value & 0x0F) + cy > 0x0F;
@@ -288,7 +288,7 @@ impl Cpu {
         let result = a.wrapping_sub(value).wrapping_sub(cy);
 
         let carry = u16::from(a) < u16::from(value) + u16::from(cy);
-        let half_carry = (a & 0x0F) < (value & 0x0F) + (cy & 0x0F);
+        let half_carry = (a & 0x0F) < (value & 0x0F) + cy;
         self.regs.set_flags(Flags::Z, result == 0);
         self.regs.set_flags(Flags::N, true);
         self.regs.set_flags(Flags::H, half_carry);

@@ -1,0 +1,64 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'gboxyde'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=gboxyde"
+                ],
+                "filter": {
+                    "name": "gboxyde",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'gboxyde'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=gboxyde",
+                    "--package=gboxyde"
+                ],
+                "filter": {
+                    "name": "gboxyde",
+                    "kind": "bin"
+                }
+            },
+            "args": ["testroms/blargg/cpu_instrs/individual/01-special.gb"],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'gboxyde'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=gboxyde",
+                    "--package=gboxyde"
+                ],
+                "filter": {
+                    "name": "gboxyde",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

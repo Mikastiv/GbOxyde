@@ -22,8 +22,25 @@ impl Cpu {
     }
 
     fn print_inst<I: Interface, Inst: Display>(&self, bus: &mut I, inst: Inst) {
+        let z = match self.regs.zf() {
+            true => "Z",
+            false => "-",
+        };
+        let n = match self.regs.nf() {
+            true => "N",
+            false => "-",
+        };
+        let h = match self.regs.hf() {
+            true => "H",
+            false => "-",
+        };
+        let c = match self.regs.cf() {
+            true => "C",
+            false => "-",
+        };
+
         println!(
-            "{:w$} | {:02X} {:02X} {:02X} | PC:{:04X} | SP:{:04X} | A:{:02X} | F:{:04b} | B:{:02X} | C:{:02X} | D:{:02X} | E:{:02X} | H:{:02X} | L:{:02X} | CYCLES:{}",
+            "{:w$} | {:02X} {:02X} {:02X} | PC:{:04X} | SP:{:04X} | A:{:02X} | F:{}{}{}{} | BC:{:04X} | DE:{:04X} | HL:{:04X} | CYCLES:{}",
             inst,
             bus.peek(self.regs.pc),
             bus.peek(self.regs.pc.wrapping_add(1)),
@@ -31,13 +48,10 @@ impl Cpu {
             self.regs.pc,
             self.regs.sp,
             self.regs.a,
-            self.regs.f.bits() >> 4,
-            self.regs.b,
-            self.regs.c,
-            self.regs.d,
-            self.regs.e,
-            self.regs.h,
-            self.regs.l,
+            z,n,h,c,
+            self.regs.bc(),
+            self.regs.de(),
+            self.regs.hl(),
             bus.cycles(),
             w = INST_PRINT_WIDTH,
         );
