@@ -1,8 +1,10 @@
 use self::{
+    dbg::Dbg,
     instructions::{Condition, Dst, Rotate, Src},
     registers::{Flags, Reg16, Registers},
 };
 
+mod dbg;
 mod instructions;
 mod registers;
 mod rw;
@@ -13,6 +15,7 @@ pub struct Cpu {
     regs: Registers,
     halted: bool,
     ime: bool,
+    dbg: Dbg,
 }
 
 pub trait Interface {
@@ -22,7 +25,11 @@ pub trait Interface {
         self.tick(1);
         data
     }
-    fn write(&mut self, address: u16, data: u8);
+    fn set(&mut self, address: u16, data: u8);
+    fn write(&mut self, address: u16, data: u8) {
+        self.set(address, data);
+        self.tick(1);
+    }
     fn tick(&mut self, count: usize);
     fn cycles(&self) -> u64;
 }
@@ -34,6 +41,7 @@ impl Cpu {
             regs: Registers::new(),
             halted: false,
             ime: false,
+            dbg: Dbg::new(),
         }
     }
 
@@ -47,6 +55,8 @@ impl Cpu {
     }
 
     pub fn step(&mut self, bus: &mut impl Interface) {
+        self.dbg.update(bus);
+        self.dbg.print();
         self.fetch_instruction(bus);
         self.execute(bus);
     }
@@ -381,8 +391,8 @@ impl Cpu {
         let c = self.regs.cf();
         let h = self.regs.hf();
 
-        let mut carry = false;
         let mut adjust = 0x00;
+        let mut carry = false;
 
         if h || (!n && (a & 0x0F) > 0x09) {
             adjust |= 0x06;

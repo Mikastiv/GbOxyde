@@ -23,7 +23,7 @@ impl Cpu {
 
     fn print_inst<I: Interface, Inst: Display>(&self, bus: &mut I, inst: Inst) {
         println!(
-            "{:w$} | {:02X} {:02X} {:02X} | PC:{:04X} | SP:{:04X} | A:{:02X} | F:{:02X} | B:{:02X} | C:{:02X} | D:{:02X} | E:{:02X} | H:{:02X} | L:{:02X} | CYCLES:{}",
+            "{:w$} | {:02X} {:02X} {:02X} | PC:{:04X} | SP:{:04X} | A:{:02X} | F:{:04b} | B:{:02X} | C:{:02X} | D:{:02X} | E:{:02X} | H:{:02X} | L:{:02X} | CYCLES:{}",
             inst,
             bus.peek(self.regs.pc),
             bus.peek(self.regs.pc.wrapping_add(1)),
@@ -31,7 +31,7 @@ impl Cpu {
             self.regs.pc,
             self.regs.sp,
             self.regs.a,
-            self.regs.f,
+            self.regs.f.bits() >> 4,
             self.regs.b,
             self.regs.c,
             self.regs.d,

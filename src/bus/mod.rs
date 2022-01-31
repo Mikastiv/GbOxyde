@@ -3,6 +3,7 @@ use crate::cpu;
 use self::{cartridge::Cartridge, wram::WRam};
 
 pub mod cartridge;
+mod io;
 mod wram;
 
 const ROM_START: u16 = 0x0000;
@@ -18,6 +19,7 @@ pub struct Bus {
     cartridge: Cartridge,
     wram: WRam,
     cycles: u64,
+    serial_data: [u8; 2],
 }
 
 impl Bus {
@@ -26,6 +28,7 @@ impl Bus {
             cartridge,
             wram: WRam::new(),
             cycles: 0,
+            serial_data: [0; 2],
         }
     }
 }
@@ -35,17 +38,20 @@ impl cpu::Interface for Bus {
         match address {
             ROM_START..=ROM_END => self.cartridge.read(address),
             WRAM_START..=WRAM_END => self.wram.read(address),
+            0xFF01 => self.serial_data[0],
+            0xFF02 => self.serial_data[1],
             _ => 0,
         }
     }
 
-    fn write(&mut self, address: u16, data: u8) {
+    fn set(&mut self, address: u16, data: u8) {
         match address {
             ROM_START..=ROM_END => self.cartridge.write(address, data),
             WRAM_START..=WRAM_END => self.wram.write(address, data),
+            0xFF01 => self.serial_data[0] = data,
+            0xFF02 => self.serial_data[1] = data,
             _ => {}
         };
-        self.tick(1);
     }
 
     fn tick(&mut self, count: usize) {
