@@ -21,9 +21,9 @@ impl Gameboy {
 
     pub fn run(&mut self) {
         loop {
-            self.cpu
-                .step_callback(&mut self.bus, |cpu, bus| cpu.trace(bus));
-            // self.cpu.step_callback(&mut self.bus, |_, _| {});
+            // self.cpu
+            //     .step_callback(&mut self.bus, |cpu, bus| cpu.trace(bus));
+            self.cpu.step_callback(&mut self.bus, |_, _| {});
         }
     }
 }

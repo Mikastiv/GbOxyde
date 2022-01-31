@@ -384,7 +384,7 @@ impl Cpu {
 
         self.regs.set_flags(Flags::Z, result == 0);
         self.regs.set_flags(Flags::N, false);
-        self.regs.set_flags(Flags::H, (value & 0x0F) + 0x01 > 0x0F);
+        self.regs.set_flags(Flags::H, value & 0x0F == 0x0F);
 
         self.write(bus, dst, result);
     }
@@ -405,8 +405,8 @@ impl Cpu {
         let result = value.wrapping_sub(1);
 
         self.regs.set_flags(Flags::Z, result == 0);
-        self.regs.set_flags(Flags::N, false);
-        self.regs.set_flags(Flags::H, (value & 0x0F) + 0x01 > 0x0F);
+        self.regs.set_flags(Flags::N, true);
+        self.regs.set_flags(Flags::H, value & 0x0F == 0x00);
 
         self.write(bus, dst, result);
     }

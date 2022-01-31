@@ -86,9 +86,11 @@ impl cpu::Interface for Bus {
     }
 
     fn tick(&mut self, count: usize) {
-        for _ in 0..count * 4 {
+        for _ in 0..count {
             self.cycles = self.cycles.wrapping_add(1);
-            self.timer.tick(&mut self.interrupts);
+            for _ in 0..4 {
+                self.timer.tick(&mut self.interrupts);
+            }
         }
     }
 
