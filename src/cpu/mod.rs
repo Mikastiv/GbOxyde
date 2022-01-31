@@ -1,3 +1,5 @@
+use crate::bus::interrupts::InterruptFlag;
+
 use self::{
     dbg::Dbg,
     instructions::{Condition, Dst, Rotate, Src},
@@ -15,6 +17,7 @@ pub struct Cpu {
     regs: Registers,
     halted: bool,
     ime: bool,
+    enabling_ime: bool,
     dbg: Dbg,
 }
 
@@ -32,6 +35,8 @@ pub trait Interface {
     }
     fn tick(&mut self, count: usize);
     fn cycles(&self) -> u64;
+    fn check_interrupts(&self) -> InterruptFlag;
+    fn interrupt_handled(&mut self, intr: InterruptFlag);
 }
 
 impl Cpu {
@@ -41,6 +46,7 @@ impl Cpu {
             regs: Registers::new(),
             halted: false,
             ime: false,
+            enabling_ime: false,
             dbg: Dbg::new(),
         }
     }
@@ -55,10 +61,64 @@ impl Cpu {
     }
 
     pub fn step(&mut self, bus: &mut impl Interface) {
-        self.dbg.update(bus);
-        self.dbg.print();
-        self.fetch_instruction(bus);
-        self.execute(bus);
+        // Last instruction was DI
+        if self.cur_opcode == 0xF3 {
+            self.fetch_instruction(bus);
+            self.execute(bus);
+            return;
+        }
+
+        match self.halted {
+            true => {
+                bus.tick(1);
+                if !bus.check_interrupts().is_empty() {
+                    self.halted = false;
+                }
+            }
+            false => {
+                // self.dbg.update(bus);
+                // self.dbg.print();
+                self.fetch_instruction(bus);
+                self.execute(bus);
+            }
+        }
+
+        if self.ime {
+            self.handle_interrupts(bus);
+            self.enabling_ime = false;
+        }
+
+        if self.enabling_ime {
+            self.ime = true;
+        }
+    }
+
+    fn handle_interrupts(&mut self, bus: &mut impl Interface) {
+        let flags = bus.check_interrupts();
+        let intr = flags.bits() & (!flags.bits()).wrapping_add(1);
+        let intr = InterruptFlag::from_bits_truncate(intr);
+
+        if intr.is_empty() {
+            return;
+        }
+
+        let address = match intr {
+            InterruptFlag::VBLANK => 0x40,
+            InterruptFlag::STAT => 0x48,
+            InterruptFlag::TIMER => 0x50,
+            InterruptFlag::SERIAL => 0x58,
+            InterruptFlag::JOYPAD => 0x60,
+            _ => panic!("No interrupts"),
+        };
+
+        self.ime = false;
+        self.halted = false;
+
+        bus.tick(1);
+
+        self.stack_push(bus, self.regs.pc);
+        self.regs.pc = address;
+        bus.interrupt_handled(intr);
     }
 
     fn fetch_instruction(&mut self, bus: &mut impl Interface) {
@@ -78,7 +138,7 @@ impl Cpu {
         u16::from_le_bytes([lo, hi])
     }
 
-    fn push(&mut self, bus: &mut impl Interface, value: u16) {
+    fn stack_push(&mut self, bus: &mut impl Interface, value: u16) {
         bus.tick(1);
         self.regs.dec_sp();
         bus.write(self.regs.sp, (value >> 8) as u8);
@@ -86,7 +146,7 @@ impl Cpu {
         bus.write(self.regs.sp, value as u8);
     }
 
-    fn pop(&mut self, bus: &mut impl Interface) -> u16 {
+    fn stack_pop(&mut self, bus: &mut impl Interface) -> u16 {
         let lo = bus.read(self.regs.sp);
         self.regs.inc_sp();
         let hi = bus.read(self.regs.sp);
@@ -149,13 +209,13 @@ impl Cpu {
         bus.tick(1);
     }
 
-    fn push16(&mut self, bus: &mut impl Interface, src: Reg16) {
+    fn push(&mut self, bus: &mut impl Interface, src: Reg16) {
         let value = self.regs.read16(src);
-        self.push(bus, value);
+        self.stack_push(bus, value);
     }
 
-    fn pop16(&mut self, bus: &mut impl Interface, dst: Reg16) {
-        let value = self.pop(bus);
+    fn pop(&mut self, bus: &mut impl Interface, dst: Reg16) {
+        let value = self.stack_pop(bus);
         self.regs.write16(dst, value);
     }
 
@@ -382,7 +442,7 @@ impl Cpu {
     }
 
     fn ei(&mut self) {
-        self.ime = true;
+        self.enabling_ime = true;
     }
 
     fn daa(&mut self) {
@@ -506,7 +566,7 @@ impl Cpu {
     }
 
     fn call_func(&mut self, bus: &mut impl Interface, address: u16) {
-        self.push(bus, self.regs.pc);
+        self.stack_push(bus, self.regs.pc);
         self.regs.pc = address;
     }
 
@@ -523,7 +583,7 @@ impl Cpu {
     }
 
     fn ret(&mut self, bus: &mut impl Interface) {
-        let address = self.pop(bus);
+        let address = self.stack_pop(bus);
         self.jump(bus, address);
     }
 
@@ -541,7 +601,7 @@ impl Cpu {
 
     fn rst(&mut self, bus: &mut impl Interface) {
         let address = self.cur_opcode & 0x38;
-        self.push(bus, self.regs.pc);
+        self.stack_push(bus, self.regs.pc);
         self.regs.pc = address as u16;
     }
 
