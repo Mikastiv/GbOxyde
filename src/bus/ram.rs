@@ -10,14 +10,14 @@ pub struct Ram {
 }
 
 impl Ram {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             wram: [0; WRAM_SIZE],
             hram: [0; HRAM_SIZE],
         }
     }
 
-    pub fn wram_read(&self, address: u16) -> u8 {
+    pub const fn wram_read(&self, address: u16) -> u8 {
         self.wram[(address as usize) & WRAM_MASK]
     }
 
@@ -25,7 +25,7 @@ impl Ram {
         self.wram[(address as usize) & WRAM_MASK] = data;
     }
 
-    pub fn hram_read(&self, address: u16) -> u8 {
+    pub const fn hram_read(&self, address: u16) -> u8 {
         self.hram[(address as usize) & HRAM_MASK]
     }
 

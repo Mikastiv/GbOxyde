@@ -16,11 +16,23 @@ pub struct Interrupts {
 }
 
 impl Interrupts {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             flags: InterruptFlag::empty(),
             enable: 0x00,
         }
+    }
+
+    pub fn request(&mut self, intr: InterruptFlag) {
+        self.flags |= intr;
+    }
+
+    pub fn flags(&self) -> u8 {
+        self.flags.bits()
+    }
+
+    pub fn set_flags(&mut self, value: u8) {
+        self.flags = InterruptFlag::from_bits_truncate(value);
     }
 
     pub fn get_enable(&self) -> u8 {

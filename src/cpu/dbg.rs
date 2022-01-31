@@ -29,7 +29,10 @@ impl Dbg {
             let s = CString::new(&self.msg[..self.size]);
             if let Ok(msg) = s {
                 if let Ok(s) = msg.to_str() {
-                    println!("DBG: {s:}");
+                    if s.contains("Failed") || s.contains("Passed") {
+                        println!("DBG: {s:}");
+                        panic!();
+                    }
                 }
             }
         }
