@@ -14,12 +14,13 @@ impl Cpu {
             bus.peek(self.regs.pc.wrapping_add(1)),
             bus.peek(self.regs.pc.wrapping_add(2)),
         ];
-        self.print_inst(bus, inst.replace_value(bytes));
 
         if let Instruction::PrefixCB = *inst {
             let opcode = bus.peek(self.regs.pc.wrapping_add(1));
             let inst_cb = disassemble_cb(opcode);
             self.print_inst(bus, inst_cb);
+        } else {
+            self.print_inst(bus, inst.replace_value(bytes));
         }
     }
 
