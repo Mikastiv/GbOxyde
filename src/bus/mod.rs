@@ -3,12 +3,14 @@ use crate::cpu;
 use self::{
     cartridge::Cartridge,
     interrupts::{InterruptFlag, Interrupts},
+    joypad::Joypad,
     ram::Ram,
     timer::Timer,
 };
 
 pub mod cartridge;
 pub mod interrupts;
+mod joypad;
 mod ram;
 mod timer;
 
@@ -20,6 +22,8 @@ const VRAM_END: u16 = 0x9FFF;
 
 const WRAM_START: u16 = 0xC000;
 const WRAM_END: u16 = 0xFDFF;
+
+const JOYPAD: u16 = 0xFF00;
 
 const SERIAL_DATA: u16 = 0xFF01;
 const SERIAL_CTRL: u16 = 0xFF02;
@@ -38,6 +42,7 @@ pub struct Bus {
     interrupts: Interrupts,
     cartridge: Cartridge,
     ram: Ram,
+    joypad: Joypad,
     serial_data: [u8; 2],
     timer: Timer,
     cycles: u64,
@@ -49,6 +54,7 @@ impl Bus {
             interrupts: Interrupts::new(),
             cartridge,
             ram: Ram::new(),
+            joypad: Joypad::new(),
             serial_data: [0; 2],
             timer: Timer::new(),
             cycles: 0,
@@ -61,12 +67,14 @@ impl cpu::Interface for Bus {
         match address {
             ROM_START..=ROM_END => self.cartridge.read(address),
             WRAM_START..=WRAM_END => self.ram.wram_read(address),
+            JOYPAD => self.joypad.read(),
             SERIAL_DATA => self.serial_data[0],
             SERIAL_CTRL => self.serial_data[1],
             TIMER_START..=TIMER_END => self.timer.read(address),
             INTR_FLAG => self.interrupts.flags(),
             HRAM_START..=HRAM_END => self.ram.hram_read(address),
             INTR_ENABLE => self.interrupts.get_enable(),
+            0xFF44 => 0x94,
             _ => 0,
         }
     }
@@ -75,6 +83,7 @@ impl cpu::Interface for Bus {
         match address {
             ROM_START..=ROM_END => self.cartridge.write(address, data),
             WRAM_START..=WRAM_END => self.ram.wram_write(address, data),
+            JOYPAD => self.joypad.write(data),
             SERIAL_DATA => self.serial_data[0] = data,
             SERIAL_CTRL => self.serial_data[1] = data,
             TIMER_START..=TIMER_END => self.timer.write(address, data),

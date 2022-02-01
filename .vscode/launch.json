@@ -38,7 +38,7 @@
                     "kind": "bin"
                 }
             },
-            "args": ["testroms/blargg/cpu_instrs/individual/01-special.gb"],
+            "args": ["roms/mario.gb"],
             "cwd": "${workspaceFolder}"
         },
         {
