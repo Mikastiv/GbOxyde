@@ -62,6 +62,7 @@ impl Joypad {
 
     pub fn write(&mut self, data: u8) {
         self.register = data & 0x3F;
+        self.register |= 0xC0;
     }
 
     pub fn keyup(&mut self, button: GbButtons) {
