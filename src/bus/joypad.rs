@@ -20,7 +20,7 @@ bitflags! {
     }
 }
 
-pub enum GbButtons {
+pub enum GbButton {
     A,
     B,
     Select,
@@ -43,8 +43,8 @@ pub struct Joypad {
 impl Joypad {
     pub const fn new() -> Self {
         Self {
-            buttons: Buttons::empty(),
-            dpad: DPad::empty(),
+            buttons: Buttons::all(),
+            dpad: DPad::all(),
             register: 0xCF,
         }
     }
@@ -65,29 +65,29 @@ impl Joypad {
         self.register |= 0xC0;
     }
 
-    pub fn keyup(&mut self, button: GbButtons) {
+    pub fn keyup(&mut self, button: GbButton) {
         match button {
-            GbButtons::A => self.buttons.insert(Buttons::A),
-            GbButtons::B => self.buttons.insert(Buttons::B),
-            GbButtons::Select => self.buttons.insert(Buttons::SELECT),
-            GbButtons::Start => self.buttons.insert(Buttons::START),
-            GbButtons::Right => self.dpad.insert(DPad::RIGHT),
-            GbButtons::Left => self.dpad.insert(DPad::LEFT),
-            GbButtons::Up => self.dpad.insert(DPad::UP),
-            GbButtons::Down => self.dpad.insert(DPad::DOWN),
+            GbButton::A => self.buttons.insert(Buttons::A),
+            GbButton::B => self.buttons.insert(Buttons::B),
+            GbButton::Select => self.buttons.insert(Buttons::SELECT),
+            GbButton::Start => self.buttons.insert(Buttons::START),
+            GbButton::Right => self.dpad.insert(DPad::RIGHT),
+            GbButton::Left => self.dpad.insert(DPad::LEFT),
+            GbButton::Up => self.dpad.insert(DPad::UP),
+            GbButton::Down => self.dpad.insert(DPad::DOWN),
         }
     }
 
-    pub fn keydown(&mut self, button: GbButtons, intr: &mut Interrupts) {
+    pub fn keydown(&mut self, button: GbButton, intr: &mut Interrupts) {
         match button {
-            GbButtons::A => self.buttons.remove(Buttons::A),
-            GbButtons::B => self.buttons.remove(Buttons::B),
-            GbButtons::Select => self.buttons.remove(Buttons::SELECT),
-            GbButtons::Start => self.buttons.remove(Buttons::START),
-            GbButtons::Right => self.dpad.remove(DPad::RIGHT),
-            GbButtons::Left => self.dpad.remove(DPad::LEFT),
-            GbButtons::Up => self.dpad.remove(DPad::UP),
-            GbButtons::Down => self.dpad.remove(DPad::DOWN),
+            GbButton::A => self.buttons.remove(Buttons::A),
+            GbButton::B => self.buttons.remove(Buttons::B),
+            GbButton::Select => self.buttons.remove(Buttons::SELECT),
+            GbButton::Start => self.buttons.remove(Buttons::START),
+            GbButton::Right => self.dpad.remove(DPad::RIGHT),
+            GbButton::Left => self.dpad.remove(DPad::LEFT),
+            GbButton::Up => self.dpad.remove(DPad::UP),
+            GbButton::Down => self.dpad.remove(DPad::DOWN),
         }
         intr.request(InterruptFlag::JOYPAD);
     }

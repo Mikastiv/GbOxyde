@@ -51,6 +51,7 @@ impl Cpu {
         }
     }
 
+    #[allow(dead_code)]
     pub fn step_callback<I, C>(&mut self, bus: &mut I, mut callback: C)
     where
         I: Interface,

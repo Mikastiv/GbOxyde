@@ -3,14 +3,14 @@ use crate::cpu;
 use self::{
     cartridge::Cartridge,
     interrupts::{InterruptFlag, Interrupts},
-    joypad::Joypad,
+    joypad::{GbButton, Joypad},
     ram::Ram,
     timer::Timer,
 };
 
 pub mod cartridge;
 pub mod interrupts;
-mod joypad;
+pub mod joypad;
 mod ram;
 mod timer;
 
@@ -59,6 +59,14 @@ impl Bus {
             timer: Timer::new(),
             cycles: 0,
         }
+    }
+
+    pub fn keyup(&mut self, button: GbButton) {
+        self.joypad.keyup(button);
+    }
+
+    pub fn keydown(&mut self, button: GbButton) {
+        self.joypad.keydown(button, &mut self.interrupts);
     }
 }
 

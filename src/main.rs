@@ -10,7 +10,9 @@ fn main() -> Result<()> {
     file.read_to_end(&mut rom)?;
 
     let mut gb = Gameboy::new(rom);
-    gb.run();
+    if let Err(e) = gb.run() {
+        eprintln!("{e}");
+    }
 
     Ok(())
 }
