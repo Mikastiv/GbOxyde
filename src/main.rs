@@ -1,7 +1,7 @@
-use gboxyde::run_emulation;
+use std::{fs::File, io::Read};
 
 use anyhow::Result;
-use std::{fs::File, io::Read};
+use gboxyde::gameboy::Gameboy;
 
 fn main() -> Result<()> {
     let romfile = std::env::args().nth(1).expect("Missing argument");
@@ -9,7 +9,10 @@ fn main() -> Result<()> {
     let mut rom = vec![];
     file.read_to_end(&mut rom)?;
 
-    run_emulation(rom)?;
+    let mut gb = Gameboy::new(rom);
+    if let Err(e) = gb.run() {
+        eprintln!("{e}");
+    }
 
     Ok(())
 }
