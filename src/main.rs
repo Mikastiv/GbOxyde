@@ -9,10 +9,5 @@ fn main() -> Result<()> {
     let mut rom = vec![];
     file.read_to_end(&mut rom)?;
 
-    let mut gb = Gameboy::new(rom);
-    if let Err(e) = gb.run() {
-        eprintln!("{e}");
-    }
-
-    Ok(())
+    Gameboy::new(rom).run().map_err(anyhow::Error::msg)
 }
