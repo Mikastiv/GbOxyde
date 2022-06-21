@@ -46,19 +46,6 @@ pub fn run_emulation(rom: Vec<u8>) -> Result<()> {
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
-            }
-            | Event::WindowEvent {
-                event:
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Escape),
-                                ..
-                            },
-                        ..
-                    },
-                ..
             } => {
                 println!("The close button was pressed; stopping");
                 *control_flow = ControlFlow::Exit;
