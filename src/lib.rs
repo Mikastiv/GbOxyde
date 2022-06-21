@@ -9,8 +9,10 @@ use winit::{
     window::WindowBuilder,
 };
 
-pub mod gameboy;
+const WIN_WIDTH: i32 = 800;
+const WIN_HEIGHT: i32 = 600;
 
+mod gameboy;
 mod bus;
 mod cpu;
 
@@ -28,11 +30,12 @@ fn map_key(key: VirtualKeyCode) -> Option<GbButton> {
     }
 }
 
-pub fn run_emulation(mut gb: Gameboy) -> Result<()> {
+pub fn run_emulation(rom: Vec<u8>) -> Result<()> {
+    let mut gb = Gameboy::new(rom);
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_title("GbOxyde")
-        .with_inner_size(PhysicalSize::new(800i32, 600i32))
+        .with_inner_size(PhysicalSize::new(WIN_WIDTH, WIN_HEIGHT))
         .with_resizable(false)
         .build(&event_loop)?;
 
