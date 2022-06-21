@@ -28,6 +28,139 @@ const CHECKSUM_LOC: usize = 0x4D;
 const CHECKSUM_START: usize = 0x34;
 const CHECKSUM_END: usize = 0x4D;
 
+pub struct Header {
+    pub title: String,
+    pub licensee: &'static str,
+    pub cgb_flag: u8,
+    pub sgb_flag: u8,
+    pub cart_type: &'static str,
+    pub rom_size: u32,
+    pub n_banks: u32,
+    pub ram_size: u32,
+    pub dst: &'static str,
+    pub version: u8,
+    pub checksum: bool,
+}
+
+impl Header {
+    pub fn new(buf: [u8; HEADER_SIZE]) -> Self {
+        let title_end = TITLE_LOC + title_size(buf[CGB_FLAG_LOC]);
+        let slice = &buf[TITLE_LOC..title_end];
+        let title = String::from_utf8_lossy(slice).to_string();
+
+        let mut chksum_bytes = [0; CHECKSUM_END - CHECKSUM_START];
+        chksum_bytes.copy_from_slice(&buf[CHECKSUM_START..CHECKSUM_END]);
+
+        Self {
+            title,
+            licensee: licensee(buf[OLD_LIC_LOC], [buf[NEW_LIC_LOC], buf[NEW_LIC_LOC + 1]]),
+            cart_type: cart_type(buf[CART_TYPE_LOC]),
+            cgb_flag: buf[CGB_FLAG_LOC],
+            sgb_flag: buf[SGB_FLAG_LOC],
+            rom_size: 32 << buf[ROM_SIZE_LOC],
+            n_banks: 2 << buf[ROM_SIZE_LOC],
+            ram_size: ram_size(buf[RAM_SIZE_LOC]),
+            dst: destination(buf[DST_LOC]),
+            version: buf[VERSION_LOC],
+            checksum: checksum(buf[CHECKSUM_LOC], chksum_bytes),
+        }
+    }
+
+    pub fn print(&self, width: usize) {
+        println!("{:<width$} {}", "Title:", self.title, width = width);
+        println!("{:<width$} {}", "Licensee:", self.licensee, width = width);
+        println!("{:<width$} {}", "Type:", self.cart_type, width = width);
+
+        let (rom_size, unit) = match self.rom_size > 512 {
+            true => (format!("{}", self.rom_size / 1024), "MBs"),
+            false => (format!("{}", self.rom_size), "KBs"),
+        };
+        println!(
+            "{:<width$} {} {}",
+            "ROM Size:",
+            rom_size,
+            unit,
+            width = width
+        );
+        println!("{:<width$} {}", "ROM Banks:", self.n_banks, width = width);
+
+        let (ram_size, unit) = match self.ram_size {
+            0 => ("No RAM".to_string(), ""),
+            _ => (format!("{}", self.ram_size), "KBs"),
+        };
+        println!(
+            "{:<width$} {} {}",
+            "RAM Size:",
+            ram_size,
+            unit,
+            width = width
+        );
+        if self.ram_size > 0 {
+            println!(
+                "{:<width$} {}",
+                "RAM Banks:",
+                self.ram_size / 8,
+                width = width
+            );
+        }
+        println!("{:<width$} {}", "Region:", self.dst, width = width);
+        println!("{:<width$} {}", "Version:", self.version, width = width);
+
+        let result = match self.checksum {
+            true => "Ok",
+            false => "Failed",
+        };
+        println!("{:<width$} {}", "Checksum:", result, width = width);
+    }
+}
+
+fn licensee(old: u8, new: [u8; 2]) -> &'static str {
+    let hi = new[0] & 0x0F;
+    let lo = new[1] & 0x0F;
+    let new_lic_code = hi << 4 | lo;
+    match old == 0x33 {
+        true => NEW_LICENSEES.get(&new_lic_code).unwrap_or(&"None"),
+        false => OLD_LICENSEES.get(&old).unwrap_or(&"None"),
+    }
+}
+
+fn cart_type(code: u8) -> &'static str {
+    CART_TYPES.get(&code).unwrap_or(&"ROM ONLY")
+}
+
+const fn title_size(code: u8) -> usize {
+    // 0b1000_0000 0b1100_0000
+    match code & 0xF0 == 0x80 || code & 0xF0 == 0xC0 {
+        true => CGB_TITLE_SIZE,
+        false => DMG_TITLE_SIZE,
+    }
+}
+
+const fn ram_size(code: u8) -> u32 {
+    match code {
+        0x02 => 8,
+        0x03 => 32,
+        0x04 => 128,
+        0x05 => 64,
+        _ => 0,
+    }
+}
+
+const fn destination(code: u8) -> &'static str {
+    match code {
+        0x00 => "Japanese",
+        _ => "Non-Japanese",
+    }
+}
+
+fn checksum(sum: u8, bytes: [u8; CHECKSUM_END - CHECKSUM_START]) -> bool {
+    let x = bytes
+        .iter()
+        .fold(0u8, |acc, &v| acc.wrapping_sub(v).wrapping_sub(1));
+
+    x == sum
+}
+
 static CART_TYPES: Lazy<HashMap<u8, &'static str>> = Lazy::new(|| {
     let mut m = HashMap::new();
 
@@ -280,136 +413,3 @@ static OLD_LICENSEES: Lazy<HashMap<u8, &'static str>> = Lazy::new(|| {
 
     m
 });
-
-pub struct Header {
-    pub title: String,
-    pub licensee: &'static str,
-    pub cgb_flag: u8,
-    pub sgb_flag: u8,
-    pub cart_type: &'static str,
-    pub rom_size: u32,
-    pub n_banks: u32,
-    pub ram_size: u32,
-    pub dst: &'static str,
-    pub version: u8,
-    pub checksum: bool,
-}
-
-impl Header {
-    pub fn new(buf: [u8; HEADER_SIZE]) -> Self {
-        let title_end = TITLE_LOC + title_size(buf[CGB_FLAG_LOC]);
-        let slice = &buf[TITLE_LOC..title_end];
-        let title = String::from_utf8_lossy(slice).to_string();
-
-        let mut chksum_bytes = [0; CHECKSUM_END - CHECKSUM_START];
-        chksum_bytes.copy_from_slice(&buf[CHECKSUM_START..CHECKSUM_END]);
-
-        Self {
-            title,
-            licensee: licensee(buf[OLD_LIC_LOC], [buf[NEW_LIC_LOC], buf[NEW_LIC_LOC + 1]]),
-            cart_type: cart_type(buf[CART_TYPE_LOC]),
-            cgb_flag: buf[CGB_FLAG_LOC],
-            sgb_flag: buf[SGB_FLAG_LOC],
-            rom_size: 32 << buf[ROM_SIZE_LOC],
-            n_banks: 2 << buf[ROM_SIZE_LOC],
-            ram_size: ram_size(buf[RAM_SIZE_LOC]),
-            dst: destination(buf[DST_LOC]),
-            version: buf[VERSION_LOC],
-            checksum: checksum(buf[CHECKSUM_LOC], chksum_bytes),
-        }
-    }
-
-    pub fn print(&self, width: usize) {
-        println!("{:<width$} {}", "Title:", self.title, width = width);
-        println!("{:<width$} {}", "Licensee:", self.licensee, width = width);
-        println!("{:<width$} {}", "Type:", self.cart_type, width = width);
-
-        let (rom_size, unit) = match self.rom_size > 512 {
-            true => (format!("{}", self.rom_size / 1024), "MBs"),
-            false => (format!("{}", self.rom_size), "KBs"),
-        };
-        println!(
-            "{:<width$} {} {}",
-            "ROM Size:",
-            rom_size,
-            unit,
-            width = width
-        );
-        println!("{:<width$} {}", "ROM Banks:", self.n_banks, width = width);
-
-        let (ram_size, unit) = match self.ram_size {
-            0 => ("No RAM".to_string(), ""),
-            _ => (format!("{}", self.ram_size), "KBs"),
-        };
-        println!(
-            "{:<width$} {} {}",
-            "RAM Size:",
-            ram_size,
-            unit,
-            width = width
-        );
-        if self.ram_size > 0 {
-            println!(
-                "{:<width$} {}",
-                "RAM Banks:",
-                self.ram_size / 8,
-                width = width
-            );
-        }
-        println!("{:<width$} {}", "Region:", self.dst, width = width);
-        println!("{:<width$} {}", "Version:", self.version, width = width);
-
-        let result = match self.checksum {
-            true => "Ok",
-            false => "Failed",
-        };
-        println!("{:<width$} {}", "Checksum:", result, width = width);
-    }
-}
-
-fn licensee(old: u8, new: [u8; 2]) -> &'static str {
-    let hi = new[0] & 0x0F;
-    let lo = new[1] & 0x0F;
-    let new_lic_code = hi << 4 | lo;
-    match old == 0x33 {
-        true => NEW_LICENSEES.get(&new_lic_code).unwrap_or(&"None"),
-        false => OLD_LICENSEES.get(&old).unwrap_or(&"None"),
-    }
-}
-
-fn cart_type(code: u8) -> &'static str {
-    CART_TYPES.get(&code).unwrap_or(&"ROM ONLY")
-}
-
-const fn title_size(code: u8) -> usize {
-    // 0b1000_0000 0b1100_0000
-    match code & 0xF0 == 0x80 || code & 0xF0 == 0xC0 {
-        true => CGB_TITLE_SIZE,
-        false => DMG_TITLE_SIZE,
-    }
-}
-
-const fn ram_size(code: u8) -> u32 {
-    match code {
-        0x02 => 8,
-        0x03 => 32,
-        0x04 => 128,
-        0x05 => 64,
-        _ => 0,
-    }
-}
-
-const fn destination(code: u8) -> &'static str {
-    match code {
-        0x00 => "Japanese",
-        _ => "Non-Japanese",
-    }
-}
-
-fn checksum(sum: u8, bytes: [u8; CHECKSUM_END - CHECKSUM_START]) -> bool {
-    let x = bytes
-        .iter()
-        .fold(0u8, |acc, &v| acc.wrapping_sub(v).wrapping_sub(1));
-
-    x == sum
-}

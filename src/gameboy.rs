@@ -29,16 +29,18 @@ impl Gameboy {
             .position_centered()
             .build()
             .map_err(|e| e.to_string())?;
-        let canvas = window
+        let mut canvas = window
             .into_canvas()
             .accelerated()
             .build()
             .map_err(|e| e.to_string())?;
 
         let mut event_pump = sdl_context.event_pump()?;
+        canvas.clear();
+        canvas.present();
         loop {
             if !self.process_events(&mut event_pump) {
-                return Ok(());
+                break Ok(());
             }
             self.cpu.step(&mut self.bus);
         }
@@ -53,16 +55,22 @@ impl Gameboy {
                     ..
                 } => return false,
                 Event::KeyDown {
-                    keycode: Some(key), ..
+                    keycode: Some(key),
+                    repeat: false,
+                    ..
                 } => {
                     if let Some(button) = map_key(key) {
+                        println!("Pressed {:?}", button);
                         self.bus.keydown(button);
                     }
                 }
                 Event::KeyUp {
-                    keycode: Some(key), ..
+                    keycode: Some(key),
+                    repeat: false,
+                    ..
                 } => {
                     if let Some(button) = map_key(key) {
+                        println!("Released {:?}", button);
                         self.bus.keyup(button);
                     }
                 }

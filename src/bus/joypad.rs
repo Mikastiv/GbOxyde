@@ -20,6 +20,7 @@ bitflags! {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum GbButton {
     A,
     B,
